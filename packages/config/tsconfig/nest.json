@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "Stokk NestJS (ESM)",
+  "extends": "./base.json",
+  "compilerOptions": {
+    // NestJS 12 ESM-only: @nestjs/common ve @nestjs/core "type": "module".
+    // CommonJS hedefi TS1479 ile derlenmiyor.
+    "module": "NodeNext",
+    "moduleResolution": "nodenext",
+
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+
+    // Nest DI için kritik ikili:
+    // verbatimModuleSyntax açık olursa `import type { FooService }` DI token'ını
+    // siler ve provider runtime'da undefined gelir.
+    "verbatimModuleSyntax": false,
+    // target ES2022 ile varsayılan true olur ve property decorator'lı alanları ezer.
+    "useDefineForClassFields": false,
+
+    // DI ile atanan alanlar constructor'da initialize edilmez.
+    "strictPropertyInitialization": false,
+
+    "types": ["node"],
+    "noEmit": false,
+    "declaration": false,
+    "sourceMap": true,
+    "incremental": true
+  }
+}

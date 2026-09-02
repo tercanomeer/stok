@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "@stokk/config/tsconfig/nest",
+  "compilerOptions": { "noEmit": true },
+  "include": ["src/**/*.ts", "test/**/*.ts", "*.config.ts", "*.config.mts"],
+  "exclude": ["dist", "node_modules"]
+}

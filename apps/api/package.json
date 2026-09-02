@@ -1,0 +1,45 @@
+{
+  "name": "@stokk/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nest start --watch",
+    "build": "nest build",
+    "start": "node dist/main.js",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rm -rf dist .turbo *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@nestjs/common": "catalog:",
+    "@nestjs/core": "catalog:",
+    "@nestjs/platform-express": "catalog:",
+    "@stokk/db": "workspace:*",
+    "@stokk/pos-core": "workspace:*",
+    "@stokk/types": "workspace:*",
+    "compression": "catalog:",
+    "dotenv": "catalog:",
+    "helmet": "catalog:",
+    "reflect-metadata": "catalog:",
+    "rxjs": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "catalog:",
+    "@nestjs/schematics": "catalog:",
+    "@nestjs/testing": "catalog:",
+    "@stokk/config": "workspace:*",
+    "@swc/core": "catalog:",
+    "@types/compression": "catalog:",
+    "@types/node": "catalog:",
+    "@types/supertest": "catalog:",
+    "eslint": "catalog:",
+    "supertest": "catalog:",
+    "typescript": "catalog:",
+    "unplugin-swc": "catalog:",
+    "vitest": "catalog:"
+  }
+}

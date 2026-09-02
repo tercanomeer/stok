@@ -1,0 +1,17 @@
+/*
+ * @stokk/ui tasarım token'ları — Tailwind 4 (@theme).
+ * Faz 0: yalnız iskelet. Renk paleti, tipografi ölçeği ve koyu tema Faz 8'de doldurulur.
+ *
+ * Tüketiciler (apps/web, apps/pos) kendi global CSS'lerinde şunu yazar:
+ *   @import 'tailwindcss';
+ *   @import '@stokk/ui/styles.css';
+ *   @source '../../../packages/ui/src';
+ * Son satır şart: Tailwind 4 otomatik içerik taraması node_modules'a (pnpm symlink) girmez,
+ * yazılmazsa ui component'lerinin class'ları production build'de sessizce purge edilir.
+ */
+
+@theme {
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+}

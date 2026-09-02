@@ -1,0 +1,18 @@
+// Stokk veri modeli.
+// Faz 0: yalnızca datasource + generator iskeleti.
+// Gerçek tablolar (Tenant, User, Product, StockMovement, Sale ...) Faz 1'de eklenir.
+//
+// Prisma 7: `url` artık şemada tanımlanmıyor. Migration/introspection bağlantısı
+// prisma.config.ts içinde, runtime bağlantısı ise PrismaClient'a verilen
+// driver adapter (@prisma/adapter-pg) üzerinden kuruluyor.
+
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+  runtime      = "nodejs"
+}

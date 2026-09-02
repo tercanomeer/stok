@@ -1,0 +1,28 @@
+{
+  "name": "@stokk/config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./tsconfig/*": "./tsconfig/*.json",
+    "./eslint/*": "./eslint/*.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "tsconfig",
+    "eslint"
+  ],
+  "dependencies": {
+    "@eslint/js": "catalog:",
+    "eslint-config-prettier": "catalog:",
+    "eslint-import-resolver-typescript": "catalog:",
+    "eslint-plugin-import-x": "catalog:",
+    "eslint-plugin-react-hooks": "catalog:",
+    "globals": "catalog:",
+    "typescript-eslint": "catalog:"
+  },
+  "peerDependencies": {
+    "eslint": "catalog:",
+    "typescript": "catalog:"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  // Bu config yalnızca ESLint'in type-aware kuralları ve editör için var: tek bir
+  // program hem main hem renderer dosyalarını görsün diye. Gerçek tip kontrolü
+  // `pnpm typecheck` ile tsconfig.main.json (Node/Electron, DOM yok) ve
+  // tsconfig.renderer.json (DOM, Node yok) üzerinden AYRI AYRI yapılır —
+  // birleşik config main process'e DOM tiplerini de gösterdiği için yeterli değil.
+  "extends": "@stokk/config/tsconfig/base",
+  "compilerOptions": {
+    "module": "Node16",
+    "moduleResolution": "node16",
+    "lib": ["DOM", "DOM.Iterable", "ES2023"],
+    "jsx": "react-jsx",
+    "types": ["node", "electron", "react", "react-dom", "vite/client"],
+    "noEmit": true
+  },
+  "include": ["electron/**/*.ts", "src/**/*.ts", "src/**/*.tsx", "*.config.ts", "*.config.mts"],
+  "exclude": ["node_modules", "dist", "dist-electron", "release"]
+}

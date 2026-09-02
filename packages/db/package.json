@@ -1,0 +1,47 @@
+{
+  "name": "@stokk/db",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "generate": "prisma generate",
+    "build": "prisma generate && tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "migrate": "prisma migrate dev",
+    "reset": "prisma migrate reset --force",
+    "seed": "tsx prisma/seed.ts",
+    "studio": "prisma studio",
+    "validate": "prisma validate",
+    "clean": "rm -rf dist .turbo src/generated *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "catalog:",
+    "@prisma/client": "catalog:",
+    "@stokk/types": "workspace:*",
+    "pg": "catalog:"
+  },
+  "devDependencies": {
+    "@stokk/config": "workspace:*",
+    "@types/node": "catalog:",
+    "@types/pg": "catalog:",
+    "dotenv": "catalog:",
+    "eslint": "catalog:",
+    "prisma": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

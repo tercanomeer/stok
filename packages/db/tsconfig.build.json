@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src/**/*.ts", "prisma.config.ts"],
+  "exclude": [
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "*.config.mts",
+    "*.config.ts",
+    "dist",
+    "node_modules",
+    "prisma/**"
+  ]
+}

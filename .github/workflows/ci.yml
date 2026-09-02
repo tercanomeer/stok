@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TURBO_TELEMETRY_DISABLED: 1
+  NEXT_TELEMETRY_DISABLED: 1
+
+jobs:
+  verify:
+    name: lint · typecheck · test · build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+
+      - name: Node kurulumu
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+
+      - name: pnpm etkinleştir
+        run: corepack enable
+
+      - name: Bağımlılıklar
+        run: pnpm install --frozen-lockfile
+
+      # Faz 0 kabul testi: taze klonda hiçbir elle adım (prisma generate,
+      # electron rebuild) gerekmeden zincirin tamamı geçmeli.
+      # better-sqlite3 @stokk/pos'un bağımlılığı; pnpm izole node_modules'ta
+      # kökten çözülmez, paketin kendi bağlamında çalıştırılmalı.
+      - name: Native modül smoke testi
+        run: pnpm --filter @stokk/pos exec node -e "require('better-sqlite3'); console.log('better-sqlite3 ok')"
+
+      - name: Turbo cache
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-turbo-
+
+      - name: Format kontrolü
+        run: pnpm format:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build

@@ -1,0 +1,6 @@
+{
+  "extends": "@stokk/config/tsconfig/electron-main",
+  "compilerOptions": { "rootDir": "electron", "outDir": "dist-electron" },
+  "include": ["electron/**/*.ts"],
+  "exclude": ["node_modules", "dist-electron"]
+}

@@ -1,0 +1,93 @@
+# pnpm 11 notları (kurulumda doğrulandı):
+#  - Build script'leri varsayılan olarak engelli. İzin listesinin adı pnpm 11'de
+#    `allowBuilds` (pnpm 10'daki `onlyBuiltDependencies` değil) ve dosyanın sonunda,
+#    pnpm tarafından yönetiliyor. `pnpm approve-builds <pkg>` ile eklenir.
+#  - `minimumReleaseAgeExclude`: pnpm çok yeni sürümleri bekletiyor; buradakiler muaf.
+#  - Bu iki bloğun içine elle yorum yazma, pnpm dosyayı yeniden yazarken siliyor.
+
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+# Tüm sürümler tek yerde, exact. Paketler `catalog:` ile referans verir.
+# Sürüm yükseltmesi burada yapılır, paketlerde değil.
+catalog:
+  # --- dil & çalışma zamanı ---
+  typescript: 6.0.3
+  '@types/node': 24.13.3
+  tsx: 4.23.13
+
+  # --- lint & format ---
+  eslint: 10.9.1
+  '@eslint/js': 10.0.1
+  typescript-eslint: 8.69.0
+  eslint-config-prettier: 10.1.8
+  eslint-plugin-import-x: 4.17.1
+  eslint-import-resolver-typescript: 4.4.5
+  eslint-plugin-react-hooks: 7.1.1
+  globals: 17.12.0
+
+  # --- backend ---
+  '@nestjs/common': 12.0.1
+  '@nestjs/core': 12.0.1
+  '@nestjs/platform-express': 12.0.1
+  '@nestjs/testing': 12.0.1
+  '@nestjs/cli': 12.0.0
+  '@nestjs/schematics': 12.0.0
+  reflect-metadata: 0.2.2
+  rxjs: 7.8.2
+  helmet: 8.3.0
+  compression: 1.8.1
+  '@types/compression': 1.8.1
+  supertest: 7.2.2
+  '@types/supertest': 7.2.1
+
+  # --- veri ---
+  prisma: 7.10.0
+  '@prisma/client': 7.10.0
+  '@prisma/adapter-pg': 7.10.0
+  pg: 8.23.0
+  '@types/pg': 8.23.1
+  dotenv: 17.4.2
+
+  # --- validation ---
+  zod: 4.5.4
+
+  # --- frontend ---
+  next: 16.3.4
+  react: 19.2.8
+  react-dom: 19.2.8
+  '@types/react': 19.2.18
+  '@types/react-dom': 19.2.5
+  tailwindcss: 4.3.3
+  '@tailwindcss/postcss': 4.3.3
+
+  # --- POS / masaüstü (iskelet; içerik Faz 12) ---
+  electron: 44.1.1
+  electron-builder: 26.15.3
+  better-sqlite3: 13.0.3
+  '@types/better-sqlite3': 9.6.0
+  vite: 8.2.2
+  '@vitejs/plugin-react': 6.1.1
+
+  # --- test ---
+  vitest: 4.1.11
+  '@vitest/coverage-v8': 4.1.11
+  '@playwright/test': 1.62.1
+  '@testing-library/react': 16.3.3
+  jsdom: 30.0.1
+  unplugin-swc: 1.5.11
+  '@swc/core': 1.16.1
+
+minimumReleaseAgeExclude:
+  - electron@44.1.1
+  - globals@17.12.0
+
+allowBuilds:
+  '@prisma/engines': true
+  '@swc/core': true
+  better-sqlite3: true
+  electron-winstaller: true
+  esbuild: true
+  prisma: true
+  unrs-resolver: true

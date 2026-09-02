@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "@stokk/config/tsconfig/next",
+  "compilerOptions": { "paths": { "@/*": ["./src/*"] } },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "*.config.ts", ".next/types/**/*.ts"],
+  "exclude": ["node_modules", ".next"]
+}

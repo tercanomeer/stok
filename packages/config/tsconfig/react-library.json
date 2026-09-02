@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "Stokk React Library",
+  "extends": "./base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["DOM", "DOM.Iterable", "ES2023"],
+    "jsx": "react-jsx",
+    "types": ["react", "react-dom"],
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "noEmit": false
+  }
+}

@@ -1,0 +1,79 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: stokk-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: stokk
+      POSTGRES_PASSWORD: stokk
+      POSTGRES_DB: stokk
+      # C.UTF-8 = bayt sırası: 'Çay' > 'Zeytin' olur, Türkçe sıralama DEĞİLDİR.
+      # Alpine imajında tr_TR.UTF-8 locale'i yok; Türkçe sıralama Faz 1'de ilgili
+      # metin sütunlarına ICU collation (tr-TR) verilerek çözülür.
+      # POSTGRES_INITDB_ARGS yalnız ilk initdb'de geçerli, volume'a gömülür.
+      POSTGRES_INITDB_ARGS: '--locale=C.UTF-8 --encoding=UTF8'
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U stokk -d stokk']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: stokk-redis
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  minio:
+    image: minio/minio:latest
+    container_name: stokk-minio
+    restart: unless-stopped
+    command: ['server', '/data', '--console-address', ':9001']
+    environment:
+      MINIO_ROOT_USER: stokk
+      MINIO_ROOT_PASSWORD: stokk12345
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # Uygulama bucket'ını bir kez oluşturur, sonra çıkar.
+  minio-init:
+    image: minio/mc:latest
+    container_name: stokk-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 stokk stokk12345 &&
+      mc mb --ignore-existing local/stokk &&
+      echo 'bucket hazir: stokk'
+      "
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:

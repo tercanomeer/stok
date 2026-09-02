@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "@stokk/config/tsconfig/node",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["src/**/*.ts", "prisma/**/*.ts", "prisma.config.ts", "*.config.ts", "*.config.mts"],
+  "exclude": ["dist", "node_modules"]
+}

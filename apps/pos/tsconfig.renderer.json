@@ -1,0 +1,10 @@
+{
+  "extends": "@stokk/config/tsconfig/react-library",
+  "compilerOptions": {
+    "types": ["react", "react-dom", "vite/client"],
+    "noEmit": true,
+    "rootDir": "src"
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": ["node_modules", "dist"]
+}

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  // Yalnız kök seviyedeki dosyalar (playwright config, e2e testleri) için.
+  // Paketlerin kendi tsconfig'leri bağımsız; bu dosya onları kapsamaz.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["node"],
+    "noEmit": true
+  },
+  "include": ["*.config.ts", "*.config.mts", "e2e/**/*.ts"],
+  "exclude": ["node_modules", "apps", "packages"]
+}

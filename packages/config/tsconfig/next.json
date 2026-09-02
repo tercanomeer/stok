@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "Stokk Next.js",
+  "extends": "./base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["DOM", "DOM.Iterable", "ES2023"],
+    "jsx": "preserve",
+    "allowJs": true,
+    "incremental": true,
+    "noEmit": true,
+    "plugins": [{ "name": "next" }]
+  }
+}
