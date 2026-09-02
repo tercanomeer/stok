@@ -87,6 +87,7 @@ model Tenant {
   expenses            Expense[]
   incomes             Income[]
   eInvoices           EInvoice[]
+  importJobs          ImportJob[]
 
   @@index([status])
   @@map("tenants")
@@ -163,6 +164,7 @@ model User {
   priceHistory     ProductPriceHistory[]
   expenses         Expense[]
   incomes          Income[]
+  importJobs       ImportJob[]
 
   @@index([tenantId, createdAt])
   @@index([tenantId, status])
@@ -1069,4 +1071,48 @@ model EInvoice {
   @@index([tenantId, status, createdAt])
   @@index([tenantId, saleId])
   @@map("e_invoices")
+}
+
+// ===========================================================================
+// Toplu import
+// ===========================================================================
+
+enum ImportJobType {
+  PRODUCT
+}
+
+enum ImportJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+/// Excel toplu import işinin kalıcı kaydı.
+/// Satır bazlı hata raporu `errors` içinde tutulur; kullanıcı sonradan indirir
+/// (Faz 9 import sihirbazı). Kısmi başarı: bazı satırlar oluşur, hatalılar raporlanır.
+model ImportJob {
+  id        String          @id @default(cuid())
+  tenantId  String
+  tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  type      ImportJobType
+  status    ImportJobStatus @default(PENDING)
+  fileName  String
+
+  totalRows     Int  @default(0)
+  processedRows Int  @default(0)
+  createdCount  Int  @default(0)
+  errorCount    Int  @default(0)
+  /// [{ row, message, field? }] biçiminde satır bazlı hatalar.
+  errors        Json @default("[]")
+
+  createdById String?
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId, createdAt])
+  @@map("import_jobs")
 }

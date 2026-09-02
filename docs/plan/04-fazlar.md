@@ -155,14 +155,14 @@ pnpm test --filter @stokk/api
 
 ### Yapılacak işler
 
-- [ ] Kategori / marka / birim CRUD — kullanımdaki kayıt silinemez (409), soft delete
-- [ ] Ürün CRUD: ad, kod, kategori, marka, birim, alış/satış fiyatı, KDV oranı, kritik seviye, tartılı ürün bayrağı
-- [ ] Çoklu barkod: bir ürüne n barkod, tenant içinde unique
-- [ ] Arama: ad / barkod / ürün kodu — trigram indeks ile, 20.000 üründe hızlı
-- [ ] Excel import: dosya yükle → kuyruk job → satır bazlı hata raporu → kısmi başarı
-- [ ] Barkod/etiket görseli üretimi (`bwip-js`), yazdırılabilir PDF sayfa düzeni
-- [ ] Toplu fiyat güncelleme: seçime göre yüzde/tutar, önizleme + fiyat geçmişi kaydı
-- [ ] Ürün görseli yükleme (S3/MinIO), MIME ve boyut kontrolü
+- [x] Kategori / marka / birim CRUD — kullanımdaki kayıt silinemez (409), soft delete
+- [x] Ürün CRUD: ad, kod, kategori, marka, birim, alış/satış fiyatı, KDV oranı, kritik seviye, tartılı ürün bayrağı
+- [x] Çoklu barkod: bir ürüne n barkod, tenant içinde unique
+- [x] Arama: ad / barkod / ürün kodu — trigram indeks ile, 20.000 üründe hızlı
+- [x] Excel import: dosya yükle → kuyruk job → satır bazlı hata raporu → kısmi başarı
+- [x] Barkod/etiket görseli üretimi (`bwip-js`), yazdırılabilir PDF sayfa düzeni
+- [x] Toplu fiyat güncelleme: seçime göre yüzde/tutar, önizleme + fiyat geçmişi kaydı
+- [x] Ürün görseli yükleme (S3/MinIO), MIME ve boyut kontrolü
 
 ### Kullanılacak ajanlar
 

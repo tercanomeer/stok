@@ -4,7 +4,12 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { hash as bcryptHash, compare as bcryptCompare } from 'bcrypt';
 import { verifySync as verifyTotp } from 'otplib';
 
-import { SYSTEM_ROLES, SYSTEM_ROLE_PERMISSIONS } from '@stokk/types';
+import {
+  DEFAULT_CATEGORIES,
+  DEFAULT_UNITS,
+  SYSTEM_ROLES,
+  SYSTEM_ROLE_PERMISSIONS,
+} from '@stokk/types';
 
 import type {
   ForgotPasswordInput,
@@ -113,6 +118,18 @@ export class AuthService {
 
       // Varsayılan kasa — satış açık bir vardiyaya bağlı, vardiya da bir kasaya.
       await tx.register.create({ data: { tenantId: tenant.id, name: 'Kasa 1' } });
+
+      // Varsayılan birimler — birim olmadan ürün oluşturulamaz.
+      await tx.unit.createMany({
+        data: DEFAULT_UNITS.map((unit) => ({ tenantId: tenant.id, ...unit })),
+      });
+      await tx.category.createMany({
+        data: DEFAULT_CATEGORIES.map((name, index) => ({
+          tenantId: tenant.id,
+          name,
+          sortOrder: index,
+        })),
+      });
 
       return { tenant, user };
     });

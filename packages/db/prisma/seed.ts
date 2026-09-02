@@ -13,52 +13,20 @@ import path from 'node:path';
 
 import { config as loadEnv } from 'dotenv';
 
-import { ALL_PERMISSIONS, SYSTEM_ROLES, SYSTEM_ROLE_PERMISSIONS } from '@stokk/types';
+import {
+  ALL_PERMISSIONS,
+  DEFAULT_CATEGORIES,
+  DEFAULT_EXPENSE_CATEGORIES,
+  DEFAULT_UNITS,
+  SYSTEM_ROLES,
+  SYSTEM_ROLE_PERMISSIONS,
+} from '@stokk/types';
 
 import { createPrismaClient } from '../src/client';
 import type { PrismaClient } from '../src/generated/prisma/client';
 
 /// Sabit id — seed'in idempotent olması için tenant her çalıştırmada aynı satıra denk gelmeli.
 const DEV_TENANT_ID = 'seed_dev_tenant';
-
-interface UnitSeed {
-  name: string;
-  abbreviation: string;
-  allowsDecimal: boolean;
-}
-
-const UNITS: readonly UnitSeed[] = [
-  { name: 'Adet', abbreviation: 'ad', allowsDecimal: false },
-  { name: 'Kilogram', abbreviation: 'kg', allowsDecimal: true },
-  { name: 'Gram', abbreviation: 'gr', allowsDecimal: true },
-  { name: 'Litre', abbreviation: 'lt', allowsDecimal: true },
-  { name: 'Mililitre', abbreviation: 'ml', allowsDecimal: true },
-  { name: 'Metre', abbreviation: 'm', allowsDecimal: true },
-  { name: 'Paket', abbreviation: 'pk', allowsDecimal: false },
-  { name: 'Kutu', abbreviation: 'kt', allowsDecimal: false },
-  { name: 'Koli', abbreviation: 'kl', allowsDecimal: false },
-];
-
-const CATEGORIES: readonly string[] = [
-  'Gıda',
-  'İçecek',
-  'Temizlik',
-  'Kişisel Bakım',
-  'Kırtasiye',
-  'Tütün Mamulleri',
-  'Diğer',
-];
-
-const EXPENSE_CATEGORIES: readonly string[] = [
-  'Kira',
-  'Elektrik',
-  'Su',
-  'Doğalgaz',
-  'İnternet & Telefon',
-  'Personel',
-  'Nakliye',
-  'Diğer',
-];
 
 /** İzin kataloğu — sistem geneli, tenant'a bağlı değil. */
 async function seedPermissions(prisma: PrismaClient): Promise<number> {
@@ -123,7 +91,7 @@ async function seedDevTenant(prisma: PrismaClient): Promise<void> {
   }
 
   // --- Birimler ---
-  for (const unit of UNITS) {
+  for (const unit of DEFAULT_UNITS) {
     await prisma.unit.upsert({
       where: { tenantId_abbreviation: { tenantId: tenant.id, abbreviation: unit.abbreviation } },
       update: { name: unit.name, allowsDecimal: unit.allowsDecimal },
@@ -135,7 +103,7 @@ async function seedDevTenant(prisma: PrismaClient): Promise<void> {
   // parentId null olduğu için bileşik unique upsert'te kullanılamıyor (Postgres NULL'ları
   // birbirinden farklı sayar). Kök kategoriler kısmi unique indeksle korunuyor; burada
   // idempotentlik için önce aranıyor.
-  for (const [index, name] of CATEGORIES.entries()) {
+  for (const [index, name] of DEFAULT_CATEGORIES.entries()) {
     const existing = await prisma.category.findFirst({
       where: { tenantId: tenant.id, name, parentId: null },
       select: { id: true },
@@ -149,7 +117,7 @@ async function seedDevTenant(prisma: PrismaClient): Promise<void> {
   }
 
   // --- Gider kategorileri ---
-  for (const name of EXPENSE_CATEGORIES) {
+  for (const name of DEFAULT_EXPENSE_CATEGORIES) {
     await prisma.expenseCategory.upsert({
       where: { tenantId_name: { tenantId: tenant.id, name } },
       update: {},
