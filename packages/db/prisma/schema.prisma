@@ -43,19 +43,19 @@ enum SubscriptionPlan {
 }
 
 model Tenant {
-  id           String           @id @default(cuid())
-  name         String
-  legalName    String?
-  taxNumber    String?
-  taxOffice    String?
-  phone        String?
-  email        String?
-  address      String?
-  plan         SubscriptionPlan @default(BASIC)
-  status       TenantStatus     @default(TRIAL)
-  trialEndsAt  DateTime?
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  id          String           @id @default(cuid())
+  name        String
+  legalName   String?
+  taxNumber   String?
+  taxOffice   String?
+  phone       String?
+  email       String?
+  address     String?
+  plan        SubscriptionPlan @default(BASIC)
+  status      TenantStatus     @default(TRIAL)
+  trialEndsAt DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 
   settings            TenantSettings?
   users               User[]
@@ -104,22 +104,22 @@ model TenantSettings {
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   /// Tenant'ın kullandığı KDV oranları (TR'de yaygın: 1, 10, 20). Ürün oranını bu listeden seçer.
-  vatRates            Int[]               @default([1, 10, 20])
-  defaultVatRate      Int                 @default(20)
-  currency            String              @default("TRY")
-  timezone            String              @default("Europe/Istanbul")
-  negativeStockPolicy NegativeStockPolicy @default(WARN)
+  vatRates                Int[]               @default([1, 10, 20])
+  defaultVatRate          Int                 @default(20)
+  currency                String              @default("TRY")
+  timezone                String              @default("Europe/Istanbul")
+  negativeStockPolicy     NegativeStockPolicy @default(WARN)
   /// %10 üzeri indirim `sale.discount.high` izni ister — eşik tenant'a göre değişebilir.
-  highDiscountThreshold Decimal           @default("10.00") @db.Decimal(5, 2)
+  highDiscountThreshold   Decimal             @default("10.00") @db.Decimal(5, 2)
   /// Vardiya kapanışında rapor edilecek fark eşiği.
-  cashDifferenceThreshold Decimal         @default("5.00") @db.Decimal(12, 2)
+  cashDifferenceThreshold Decimal             @default("5.00") @db.Decimal(12, 2)
   /// Terazi barkodu prefix'i (örn. "27", "28"). Boşsa tartılı barkod ayrıştırması kapalı.
-  scaleBarcodePrefixes String[]           @default([])
+  scaleBarcodePrefixes    String[]            @default([])
   /// Bu tutarın üzerindeki mükellef olmayan satışlarda e-Arşiv üretilir.
-  eArchiveThreshold   Decimal             @default("5000.00") @db.Decimal(12, 2)
-  receiptHeader       String?
-  receiptFooter       String?
-  logoUrl             String?
+  eArchiveThreshold       Decimal             @default("5000.00") @db.Decimal(12, 2)
+  receiptHeader           String?
+  receiptFooter           String?
+  logoUrl                 String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -151,20 +151,20 @@ model User {
   updatedAt    DateTime   @updatedAt
   deletedAt    DateTime?
 
-  roles            UserRole[]
-  refreshTokens    RefreshToken[]
-  auditLogs        AuditLog[]
-  cashSessions     CashSession[]
-  cashMovements    CashMovement[]
-  sales            Sale[]
-  saleReturns      SaleReturn[]
-  stockMovements   StockMovement[]
-  stockCounts      StockCount[]
-  purchases        Purchase[]
-  priceHistory     ProductPriceHistory[]
-  expenses         Expense[]
-  incomes          Income[]
-  importJobs       ImportJob[]
+  roles          UserRole[]
+  refreshTokens  RefreshToken[]
+  auditLogs      AuditLog[]
+  cashSessions   CashSession[]
+  cashMovements  CashMovement[]
+  sales          Sale[]
+  saleReturns    SaleReturn[]
+  stockMovements StockMovement[]
+  stockCounts    StockCount[]
+  purchases      Purchase[]
+  priceHistory   ProductPriceHistory[]
+  expenses       Expense[]
+  incomes        Income[]
+  importJobs     ImportJob[]
 
   @@index([tenantId, createdAt])
   @@index([tenantId, status])
@@ -232,20 +232,20 @@ model UserRole {
 }
 
 model RefreshToken {
-  id        String    @id @default(cuid())
-  tenantId  String
-  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id           String    @id @default(cuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   /// Token'ın kendisi değil, SHA-256 özeti saklanır.
-  tokenHash String    @unique
+  tokenHash    String    @unique
   /// Rotasyon zinciri: bu token hangi token'ın yerine üretildi.
   replacedById String?
-  expiresAt DateTime
-  revokedAt DateTime?
-  userAgent String?
-  ipAddress String?
-  createdAt DateTime  @default(now())
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  userAgent    String?
+  ipAddress    String?
+  createdAt    DateTime  @default(now())
 
   @@index([userId, expiresAt])
   @@index([tenantId, createdAt])
@@ -262,19 +262,19 @@ enum AuditAction {
 }
 
 model AuditLog {
-  id         String      @id @default(cuid())
-  tenantId   String
-  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  userId     String?
-  user       User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
-  action     AuditAction
-  entity     String
-  entityId   String?
+  id        String      @id @default(cuid())
+  tenantId  String
+  tenant    Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    AuditAction
+  entity    String
+  entityId  String?
   /// Değişen alanlar. PII (şifre, kart no, CVV) ASLA yazılmaz — CLAUDE.md.
-  changes    Json?
-  ipAddress  String?
-  userAgent  String?
-  createdAt  DateTime    @default(now())
+  changes   Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime    @default(now())
 
   @@index([tenantId, createdAt])
   @@index([tenantId, entity, entityId])
@@ -287,16 +287,16 @@ model AuditLog {
 // ===========================================================================
 
 model Category {
-  id        String    @id @default(cuid())
+  id        String     @id @default(cuid())
   tenantId  String
-  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name      String
   parentId  String?
-  parent    Category? @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  parent    Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
   children  Category[] @relation("CategoryTree")
-  sortOrder Int       @default(0)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  sortOrder Int        @default(0)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
   deletedAt DateTime?
 
   products Product[]
@@ -323,16 +323,16 @@ model Brand {
 }
 
 model Unit {
-  id           String    @id @default(cuid())
-  tenantId     String
-  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  name         String
-  abbreviation String
+  id            String    @id @default(cuid())
+  tenantId      String
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name          String
+  abbreviation  String
   /// Ondalıklı miktar kabul eder mi (kg/lt evet, adet hayır).
-  allowsDecimal Boolean  @default(false)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  deletedAt    DateTime?
+  allowsDecimal Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
 
   products Product[]
 
@@ -342,9 +342,9 @@ model Unit {
 }
 
 model Product {
-  id         String  @id @default(cuid())
+  id         String    @id @default(cuid())
   tenantId   String
-  tenant     Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   name       String
   /// İşletmenin kendi ürün kodu (stok kodu). Tenant içinde benzersiz.
   code       String?
@@ -356,14 +356,14 @@ model Product {
   unit       Unit      @relation(fields: [unitId], references: [id], onDelete: Restrict)
 
   /// Satış fiyatı KDV DAHİL girilir ve gösterilir — 01-proje.md "Para & KDV".
-  salePrice     Decimal @db.Decimal(12, 2)
+  salePrice         Decimal  @db.Decimal(12, 2)
   /// Ağırlıklı ortalama maliyet, KDV HARİÇ. Alış faturasında güncellenir.
   /// 4 ondalık: ortalama her alışta yeniden hesaplanıyor; 2 hanede saklanırsa
   /// her adımda kuruşa yuvarlanır ve sapma birikir (telafi mekanizması yok).
-  averageCost   Decimal @default("0.0000") @db.Decimal(14, 4)
+  averageCost       Decimal  @default("0.0000") @db.Decimal(14, 4)
   /// Son alış fiyatı, KDV hariç.
   lastPurchasePrice Decimal? @db.Decimal(12, 2)
-  vatRate       Int
+  vatRate           Int
 
   /// Stok hareketlerinden türetilen denormalize değer. Transaction içinde güncellenir,
   /// tek doğruluk kaynağı `stock_movements` defteridir.
@@ -415,17 +415,17 @@ model Barcode {
 }
 
 model ProductPriceHistory {
-  id           String   @id @default(cuid())
-  tenantId     String
-  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  productId    String
-  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  oldPrice     Decimal  @db.Decimal(12, 2)
-  newPrice     Decimal  @db.Decimal(12, 2)
-  changedById  String?
-  changedBy    User?    @relation(fields: [changedById], references: [id], onDelete: SetNull)
-  reason       String?
-  createdAt    DateTime @default(now())
+  id          String   @id @default(cuid())
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  oldPrice    Decimal  @db.Decimal(12, 2)
+  newPrice    Decimal  @db.Decimal(12, 2)
+  changedById String?
+  changedBy   User?    @relation(fields: [changedById], references: [id], onDelete: SetNull)
+  reason      String?
+  createdAt   DateTime @default(now())
 
   @@index([tenantId, productId, createdAt])
   @@map("product_price_history")
@@ -448,18 +448,18 @@ enum StockMovementType {
 /// Stok bir hareket defteridir. Anlık miktar hareketlerden türetilir, elle set edilmez.
 /// `Product.stockQuantity` performans için tutulan denormalize kopyadır.
 model StockMovement {
-  id        String            @id @default(cuid())
-  tenantId  String
-  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  productId String
-  product   Product           @relation(fields: [productId], references: [id], onDelete: Restrict)
-  type      StockMovementType
+  id           String            @id @default(cuid())
+  tenantId     String
+  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  productId    String
+  product      Product           @relation(fields: [productId], references: [id], onDelete: Restrict)
+  type         StockMovementType
   /// İşaretli miktar: giriş pozitif, çıkış negatif.
-  quantity  Decimal           @db.Decimal(12, 3)
+  quantity     Decimal           @db.Decimal(12, 3)
   /// Hareket sonrası çalışan bakiye — denormalize alanla tutarlılık kontrolü için.
-  balanceAfter Decimal        @db.Decimal(12, 3)
+  balanceAfter Decimal           @db.Decimal(12, 3)
   /// Hareket anındaki birim maliyet (KDV hariç). averageCost ile aynı hassasiyet.
-  unitCost  Decimal?          @db.Decimal(14, 4)
+  unitCost     Decimal?          @db.Decimal(14, 4)
 
   /// Hareketi doğuran belge. Tip başına yalnız biri dolu olur.
   saleId       String?
@@ -514,19 +514,19 @@ model StockCount {
 }
 
 model StockCountItem {
-  id           String     @id @default(cuid())
-  tenantId     String
-  tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  stockCountId String
-  stockCount   StockCount @relation(fields: [stockCountId], references: [id], onDelete: Cascade)
-  productId    String
-  product      Product    @relation(fields: [productId], references: [id], onDelete: Restrict)
+  id               String     @id @default(cuid())
+  tenantId         String
+  tenant           Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  stockCountId     String
+  stockCount       StockCount @relation(fields: [stockCountId], references: [id], onDelete: Cascade)
+  productId        String
+  product          Product    @relation(fields: [productId], references: [id], onDelete: Restrict)
   /// Sayım başladığında sistemdeki miktar.
-  expectedQuantity Decimal @db.Decimal(12, 3)
+  expectedQuantity Decimal    @db.Decimal(12, 3)
   /// Fiilen sayılan miktar.
-  countedQuantity  Decimal @db.Decimal(12, 3)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  countedQuantity  Decimal    @db.Decimal(12, 3)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
 
   @@unique([stockCountId, productId])
   @@index([tenantId, stockCountId])
@@ -589,15 +589,15 @@ enum ContactTransactionType {
 }
 
 model ContactTransaction {
-  id        String                 @id @default(cuid())
-  tenantId  String
-  tenant    Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  contactId String
-  contact   Contact                @relation(fields: [contactId], references: [id], onDelete: Restrict)
-  type      ContactTransactionType
-  amount    Decimal                @db.Decimal(12, 2)
+  id           String                 @id @default(cuid())
+  tenantId     String
+  tenant       Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contactId    String
+  contact      Contact                @relation(fields: [contactId], references: [id], onDelete: Restrict)
+  type         ContactTransactionType
+  amount       Decimal                @db.Decimal(12, 2)
   /// Hareket sonrası çalışan bakiye.
-  balanceAfter Decimal             @db.Decimal(12, 2)
+  balanceAfter Decimal                @db.Decimal(12, 2)
 
   saleId     String?
   sale       Sale?     @relation(fields: [saleId], references: [id], onDelete: Restrict)
@@ -620,14 +620,14 @@ enum PurchaseStatus {
 }
 
 model Purchase {
-  id         String         @id @default(cuid())
-  tenantId   String
-  tenant     Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  contactId  String
-  contact    Contact        @relation(fields: [contactId], references: [id], onDelete: Restrict)
+  id          String         @id @default(cuid())
+  tenantId    String
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contactId   String
+  contact     Contact        @relation(fields: [contactId], references: [id], onDelete: Restrict)
   /// Tedarikçinin fatura numarası.
-  invoiceNo  String?
-  status     PurchaseStatus @default(DRAFT)
+  invoiceNo   String?
+  status      PurchaseStatus @default(DRAFT)
   invoiceDate DateTime
 
   subtotal      Decimal @db.Decimal(12, 2)
@@ -642,9 +642,9 @@ model Purchase {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  items                PurchaseItem[]
-  stockMovements       StockMovement[]
-  contactTransactions  ContactTransaction[]
+  items               PurchaseItem[]
+  stockMovements      StockMovement[]
+  contactTransactions ContactTransaction[]
 
   @@unique([tenantId, contactId, invoiceNo])
   @@index([tenantId, status, invoiceDate])
@@ -718,11 +718,11 @@ model CashSession {
   status     CashSessionStatus @default(OPEN)
 
   /// Açılışta sayılan nakit.
-  openingAmount Decimal  @db.Decimal(12, 2)
+  openingAmount    Decimal  @db.Decimal(12, 2)
   /// Kapanışta sayılan nakit.
-  closingAmount Decimal? @db.Decimal(12, 2)
+  closingAmount    Decimal? @db.Decimal(12, 2)
   /// açılış + nakit satış + tahsilat − gider − nakit iade
-  expectedAmount Decimal? @db.Decimal(12, 2)
+  expectedAmount   Decimal? @db.Decimal(12, 2)
   /// closingAmount − expectedAmount. Eşiği aşarsa uyarılır ama vardiya yine kapanır.
   differenceAmount Decimal? @db.Decimal(12, 2)
 
@@ -798,6 +798,20 @@ enum PaymentMethod {
   TRANSFER
 }
 
+model ReceiptSequence {
+  tenantId  String
+  /// Belge türü: 'SALE' (fiş no) | 'RETURN' (iade no).
+  kind      String
+  /// Son verilen numara. Artış SATIŞ TRANSACTION'ı İÇİNDE yapılır: rollback olursa
+  /// numara tüketilmez → boşluksuz ardışık. Postgres SEQUENCE kullanılmaz, çünkü
+  /// nextval() rollback'te geri alınmaz ve boşluk oluşur (01-proje: "boşluksuz").
+  lastValue Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@id([tenantId, kind])
+  @@map("receipt_sequences")
+}
+
 model Sale {
   id            String      @id @default(cuid())
   tenantId      String
@@ -812,7 +826,7 @@ model Sale {
   contact       Contact?    @relation(fields: [contactId], references: [id], onDelete: Restrict)
 
   /// Tenant başına ardışık fiş numarası. Offline satış senkronizasyonda numara alır.
-  receiptNo String
+  receiptNo    String
   /// POS'un ürettiği UUID. Sync at-least-once çalışır; aynı id ikinci kez gelirse
   /// yeni satış açılmaz, mevcut satış döner — 01-proje.md "Offline".
   clientSaleId String?
@@ -860,20 +874,20 @@ model SaleItem {
   product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
 
   /// Ürün adı satış anında dondurulur; ürün sonradan yeniden adlandırılsa da fiş değişmez.
-  productName String
-  quantity    Decimal @db.Decimal(12, 3)
+  productName  String
+  quantity     Decimal @db.Decimal(12, 3)
   /// Birim satış fiyatı, KDV DAHİL.
-  unitPrice   Decimal @db.Decimal(12, 2)
+  unitPrice    Decimal @db.Decimal(12, 2)
   discountRate Decimal @default("0.00") @db.Decimal(5, 2)
-  vatRate     Int
+  vatRate      Int
   /// KDV hariç matrah.
-  netAmount   Decimal @db.Decimal(12, 2)
-  vatAmount   Decimal @db.Decimal(12, 2)
-  lineTotal   Decimal @db.Decimal(12, 2)
+  netAmount    Decimal @db.Decimal(12, 2)
+  vatAmount    Decimal @db.Decimal(12, 2)
+  lineTotal    Decimal @db.Decimal(12, 2)
   /// Satış anındaki ağırlıklı ortalama maliyet — kâr raporu bunu kullanır.
   /// averageCost'un dondurulmuş kopyası, aynı hassasiyette.
-  unitCost    Decimal @default("0.0000") @db.Decimal(14, 4)
-  note        String?
+  unitCost     Decimal @default("0.0000") @db.Decimal(14, 4)
+  note         String?
 
   createdAt DateTime @default(now())
 
@@ -885,18 +899,18 @@ model SaleItem {
 }
 
 model SalePayment {
-  id       String        @id @default(cuid())
-  tenantId String
-  tenant   Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  saleId   String
-  sale     Sale          @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  method   PaymentMethod
+  id             String        @id @default(cuid())
+  tenantId       String
+  tenant         Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  saleId         String
+  sale           Sale          @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  method         PaymentMethod
   /// Parçaların toplamı fiş tutarına birebir eşit olmak zorunda — servis katmanında zorlanır.
-  amount   Decimal       @db.Decimal(12, 2)
+  amount         Decimal       @db.Decimal(12, 2)
   /// Nakit ödemede müşterinin verdiği tutar; para üstü bundan hesaplanır.
-  receivedAmount Decimal? @db.Decimal(12, 2)
-  reference String?
-  createdAt DateTime      @default(now())
+  receivedAmount Decimal?      @db.Decimal(12, 2)
+  reference      String?
+  createdAt      DateTime      @default(now())
 
   @@index([tenantId, saleId])
   /// Ödeme yöntemi dağılımı raporu önce tarihe göre filtreliyor; method yalnız 4 değer
@@ -915,13 +929,13 @@ model SaleReturn {
   saleId   String
   sale     Sale   @relation(fields: [saleId], references: [id], onDelete: Restrict)
 
-  returnNo      String
-  totalAmount   Decimal       @db.Decimal(12, 2)
-  refundMethod  PaymentMethod
-  reason        String
-  createdById   String?
-  createdBy     User?         @relation(fields: [createdById], references: [id], onDelete: SetNull)
-  createdAt     DateTime      @default(now())
+  returnNo     String
+  totalAmount  Decimal       @db.Decimal(12, 2)
+  refundMethod PaymentMethod
+  reason       String
+  createdById  String?
+  createdBy    User?         @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt    DateTime      @default(now())
 
   items          SaleReturnItem[]
   stockMovements StockMovement[]
@@ -982,14 +996,14 @@ model Expense {
   categoryId String?
   category   ExpenseCategory? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
 
-  amount        Decimal        @db.Decimal(12, 2)
+  amount        Decimal       @db.Decimal(12, 2)
   paymentMethod PaymentMethod
   description   String
   expenseDate   DateTime
   /// Kasadan ödendiyse hangi vardiyaya düştüğü. Vardiya kapanışındaki
   /// "− gider" kaleminin denetlenebilmesi için gerçek FK.
   cashSessionId String?
-  cashSession   CashSession? @relation(fields: [cashSessionId], references: [id], onDelete: Restrict)
+  cashSession   CashSession?  @relation(fields: [cashSessionId], references: [id], onDelete: Restrict)
   documentNo    String?
 
   createdById String?
@@ -1013,7 +1027,7 @@ model Income {
   description   String
   incomeDate    DateTime
   cashSessionId String?
-  cashSession   CashSession? @relation(fields: [cashSessionId], references: [id], onDelete: Restrict)
+  cashSession   CashSession?  @relation(fields: [cashSessionId], references: [id], onDelete: Restrict)
   documentNo    String?
 
   createdById String?
@@ -1044,25 +1058,25 @@ enum EInvoiceStatus {
 }
 
 model EInvoice {
-  id        String         @id @default(cuid())
+  id        String   @id @default(cuid())
   tenantId  String
-  tenant    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   saleId    String?
-  sale      Sale?          @relation(fields: [saleId], references: [id], onDelete: Restrict)
+  sale      Sale?    @relation(fields: [saleId], references: [id], onDelete: Restrict)
   contactId String?
-  contact   Contact?       @relation(fields: [contactId], references: [id], onDelete: Restrict)
+  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: Restrict)
 
-  type      EInvoiceType
-  status    EInvoiceStatus @default(DRAFT)
+  type             EInvoiceType
+  status           EInvoiceStatus @default(DRAFT)
   /// Entegratörün döndüğü belge numarası (UUID/ETTN).
-  externalId String?
-  invoiceNo  String?
-  totalAmount Decimal       @db.Decimal(12, 2)
-  vatTotal    Decimal       @db.Decimal(12, 2)
-  pdfUrl      String?
+  externalId       String?
+  invoiceNo        String?
+  totalAmount      Decimal        @db.Decimal(12, 2)
+  vatTotal         Decimal        @db.Decimal(12, 2)
+  pdfUrl           String?
   /// Entegratörün son yanıtı; hata ayıklama için. PII yazılmaz.
   providerResponse Json?
-  errorMessage String?
+  errorMessage     String?
 
   sentAt      DateTime?
   respondedAt DateTime?
@@ -1094,12 +1108,12 @@ enum ImportJobStatus {
 /// Satır bazlı hata raporu `errors` içinde tutulur; kullanıcı sonradan indirir
 /// (Faz 9 import sihirbazı). Kısmi başarı: bazı satırlar oluşur, hatalılar raporlanır.
 model ImportJob {
-  id        String          @id @default(cuid())
-  tenantId  String
-  tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  type      ImportJobType
-  status    ImportJobStatus @default(PENDING)
-  fileName  String
+  id       String          @id @default(cuid())
+  tenantId String
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  type     ImportJobType
+  status   ImportJobStatus @default(PENDING)
+  fileName String
 
   totalRows     Int  @default(0)
   processedRows Int  @default(0)
@@ -1109,11 +1123,11 @@ model ImportJob {
   errors        Json @default("[]")
 
   createdById String?
-  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy   User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
   startedAt   DateTime?
   completedAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([tenantId, createdAt])
   @@map("import_jobs")

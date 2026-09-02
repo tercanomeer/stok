@@ -23,7 +23,8 @@
     "clean": "rm -rf dist .turbo *.tsbuildinfo"
   },
   "dependencies": {
-    "@stokk/types": "workspace:*"
+    "@stokk/types": "workspace:*",
+    "decimal.js": "catalog:"
   },
   "devDependencies": {
     "@stokk/config": "workspace:*",

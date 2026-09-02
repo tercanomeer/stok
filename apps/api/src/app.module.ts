@@ -12,13 +12,17 @@ import { TransformResponseInterceptor } from './common/interceptors/transform-re
 import { ConfigModule, ENV } from './config/config.module.js';
 import { AuditModule } from './modules/audit/audit.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
+import { CashSessionsModule } from './modules/cash-sessions/cash-sessions.module.js';
 import { CatalogModule } from './modules/catalog/catalog.module.js';
 import { ContactsModule } from './modules/contacts/contacts.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { ProductsModule } from './modules/products/products.module.js';
 import { PurchasesModule } from './modules/purchases/purchases.module.js';
+import { RegistersModule } from './modules/registers/registers.module.js';
 import { RolesModule } from './modules/roles/roles.module.js';
+import { SalesModule } from './modules/sales/sales.module.js';
 import { StockModule } from './modules/stock/stock.module.js';
+import { SyncModule } from './modules/sync/sync.module.js';
 import { UsersModule } from './modules/users/users.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { RedisModule } from './redis/redis.module.js';
@@ -58,6 +62,10 @@ import { StorageModule } from './storage/storage.module.js';
     StockModule,
     ContactsModule,
     PurchasesModule,
+    RegistersModule,
+    CashSessionsModule,
+    SalesModule,
+    SyncModule,
     HealthModule,
   ],
   providers: [

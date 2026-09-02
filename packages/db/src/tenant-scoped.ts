@@ -26,6 +26,7 @@ export const TENANT_SCOPED_MODELS = [
   'ProductPriceHistory',
   'Purchase',
   'PurchaseItem',
+  'ReceiptSequence',
   'RefreshToken',
   'Register',
   'Role',

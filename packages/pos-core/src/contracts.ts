@@ -34,3 +34,25 @@ export interface SaleTotals {
   vatTotal: string;
   grandTotal: string;
 }
+
+/** Satır bazında hesap sonucu — SaleItem satırları bu değerlerle yazılır (tek kaynak). */
+export interface SaleLineResult {
+  productId: string;
+  quantity: string;
+  unitPrice: string;
+  vatRate: number;
+  discountRate: string;
+  /** KDV hariç matrah. */
+  netAmount: string;
+  vatAmount: string;
+  /** KDV dahil, indirim sonrası satır toplamı (müşterinin ödediği). */
+  lineTotal: string;
+  /** Bu satırda verilen toplam indirim (KDV dahil). */
+  discountAmount: string;
+}
+
+/** Satış hesabının tam dökümü: satır satır + toplamlar. */
+export interface SaleBreakdown {
+  lines: SaleLineResult[];
+  totals: SaleTotals;
+}

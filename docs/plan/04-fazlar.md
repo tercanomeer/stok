@@ -254,14 +254,14 @@ pnpm test --filter @stokk/api
 
 ### Yapılacak işler
 
-- [ ] `@stokk/pos-core`: `calculateSaleTotals` (satır → indirim → KDV matrahı → toplam), para üstü, tartılı ürün, terazi barkod parse — **saf fonksiyonlar, framework bağımsız**
-- [ ] `pos-core` birim testleri: kuruş yuvarlama, karışık KDV oranları, %100 indirim, sıfır tutarlı satış, negatif senaryolar
-- [ ] Kasa (`Register`) tanımı ve vardiya: aç (sayılan nakit), kasa hareketleri, kapat (özet + fark)
-- [ ] Satış oluşturma: `clientSaleId` ile **idempotent**, stok düşümü, parçalı ödeme doğrulaması, veresiye limit kontrolü, ardışık fiş numarası (boşluksuz)
-- [ ] Satış iptali (aynı vardiya, kapanmadan) ve iade (kalem bazlı, stok geri, ödeme yöntemine göre)
-- [ ] Park / geri alma
-- [ ] Fiş verisi endpoint'i (yazdırma için tam yapı)
-- [ ] Sync endpoint'leri: `GET /sync/pull?since=`, `POST /sync/sales` (toplu, idempotent)
+- [x] `@stokk/pos-core`: `calculateSaleTotals`/`calculateSaleBreakdown`, para üstü, tartılı ürün, terazi barkod parse — **saf fonksiyonlar, framework bağımsız**
+- [x] `pos-core` birim testleri: kuruş yuvarlama, karışık KDV oranları, %100 indirim, sıfır tutarlı satış, negatif senaryolar (%100 kapsam)
+- [x] Kasa (`Register`) tanımı ve vardiya: aç (sayılan nakit), kasa hareketleri, kapat (özet + fark)
+- [x] Satış oluşturma: `clientSaleId` ile **idempotent**, stok düşümü, parçalı ödeme doğrulaması, veresiye limit kontrolü, ardışık fiş numarası (boşluksuz)
+- [x] Satış iptali (aynı vardiya, kapanmadan) ve iade (kalem bazlı, stok geri, ödeme yöntemine göre)
+- [x] Park / geri alma
+- [x] Fiş verisi endpoint'i (yazdırma için tam yapı)
+- [x] Sync endpoint'leri: `GET /sync/pull?since=`, `POST /sync/sales` (toplu, idempotent)
 
 ### Kullanılacak ajanlar
 

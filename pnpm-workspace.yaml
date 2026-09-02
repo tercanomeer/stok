@@ -72,6 +72,9 @@ catalog:
   # --- validation ---
   zod: 4.5.4
 
+  # --- hesap (para; float yasak) ---
+  decimal.js: 10.6.0
+
   # --- frontend ---
   next: 16.3.4
   react: 19.2.8
