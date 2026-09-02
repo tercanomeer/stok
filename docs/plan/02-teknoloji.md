@@ -78,18 +78,19 @@ Karar bir daha tartışılmasın diye gerekçeleriyle kayıtta:
 
 ## Karar kaydı
 
-| Tarih      | Karar                                                | Not                                                                                                      |
-| ---------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| 2026-09-01 | Backend: TypeScript + NestJS                         | Uçtan uca tek dil                                                                                        |
-| 2026-09-01 | Veri: PostgreSQL + Prisma                            | Prisma 8 RC'de; 7.10 stabilde kalınır                                                                    |
-| 2026-09-01 | Admin: Next.js + Tailwind + shadcn/ui                | İşveren paneli tarayıcıdan                                                                               |
-| 2026-09-01 | POS: Electron + React + Vite + better-sqlite3        | Kasiyer masaüstünde, offline şart                                                                        |
-| 2026-09-01 | Dağıtım modeli: Electron POS + web admin             | İki uygulama, tek backend                                                                                |
-| 2026-09-01 | Deploy: Docker + Caddy + TR/AB VPS                   | Veri lokasyonu ve sabit maliyet                                                                          |
-| 2026-09-01 | Ödeme: soyut `PaymentProvider` + mock                | Sağlayıcı (İyzico/PayTR/Stripe) Faz 15'te seçilecek                                                      |
-| 2026-09-01 | e-Fatura & ÖKC: soyut adapter + mock                 | Gerçek entegratör sözleşme/NDA gerektiriyor; interface hazır tutulur                                     |
-| 2026-09-02 | TypeScript **6.0.3**'e sabitlendi (7.0 değil)        | Faz 0 kurulumunda doğrulandı, aşağıdaki gerekçe                                                          |
-| 2026-09-02 | Tenant izolasyonu: PostgreSQL RLS + Prisma extension | Prisma 7'de `$use` yok; `$extends` `$queryRaw`'ı kapsamıyor. RLS her sorguyu kapsar. Kullanıcıya soruldu |
+| Tarih      | Karar                                                                             | Not                                                                                                      |
+| ---------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| 2026-09-01 | Backend: TypeScript + NestJS                                                      | Uçtan uca tek dil                                                                                        |
+| 2026-09-01 | Veri: PostgreSQL + Prisma                                                         | Prisma 8 RC'de; 7.10 stabilde kalınır                                                                    |
+| 2026-09-01 | Admin: Next.js + Tailwind + shadcn/ui                                             | İşveren paneli tarayıcıdan                                                                               |
+| 2026-09-01 | POS: Electron + React + Vite + better-sqlite3                                     | Kasiyer masaüstünde, offline şart                                                                        |
+| 2026-09-01 | Dağıtım modeli: Electron POS + web admin                                          | İki uygulama, tek backend                                                                                |
+| 2026-09-01 | Deploy: Docker + Caddy + TR/AB VPS                                                | Veri lokasyonu ve sabit maliyet                                                                          |
+| 2026-09-01 | Ödeme: soyut `PaymentProvider` + mock                                             | Sağlayıcı (İyzico/PayTR/Stripe) Faz 15'te seçilecek                                                      |
+| 2026-09-01 | e-Fatura & ÖKC: soyut adapter + mock                                              | Gerçek entegratör sözleşme/NDA gerektiriyor; interface hazır tutulur                                     |
+| 2026-09-02 | TypeScript **6.0.3**'e sabitlendi (7.0 değil)                                     | Faz 0 kurulumunda doğrulandı, aşağıdaki gerekçe                                                          |
+| 2026-09-02 | Tenant izolasyonu: PostgreSQL RLS + Prisma extension                              | Prisma 7'de `$use` yok; `$extends` `$queryRaw`'ı kapsamıyor. RLS her sorguyu kapsar. Kullanıcıya soruldu |
+| 2026-09-02 | Stok: FOR UPDATE + withTenant `{timeout:15s, maxWait:10s}`, `connection_limit=20` | 50 paralel düşümde pool/kilit penceresi; ledger↔denormalize invaryantı                                   |
 
 **Açık kalan kararlar** — ilgili faza gelindiğinde kullanıcıya sorulacak:
 

@@ -189,13 +189,13 @@ pnpm test --filter @stokk/api
 
 ### Yapılacak işler
 
-- [ ] `StockMovement` ledger'ı: satış, iade, alış, sayım farkı, fire, düzeltme tipleri
-- [ ] Anlık stok: hareketlerden türetilen değer + performans için `Product.stockQuantity` denormalize alanı (transaction içinde güncellenir)
-- [ ] Kritik seviye listesi + `stock.low` domain event'i
-- [ ] Sayım: başlat → kalem gir (barkodla hızlı giriş) → tamamla (fark tek düzeltme hareketi) → iptal
-- [ ] Fire kaydı (sebep zorunlu), manuel düzeltme (yetki + sebep)
-- [ ] Hareket geçmişi: ürün/tarih/tip filtreli, sayfalı
-- [ ] Negatif stok politikası: tenant ayarı (uyar / engelle)
+- [x] `StockMovement` ledger'ı: satış, iade, alış, sayım farkı, fire, düzeltme tipleri
+- [x] Anlık stok: hareketlerden türetilen değer + performans için `Product.stockQuantity` denormalize alanı (transaction içinde güncellenir)
+- [x] Kritik seviye listesi + `stock.low` domain event'i
+- [x] Sayım: başlat → kalem gir (barkodla hızlı giriş) → tamamla (fark tek düzeltme hareketi) → iptal
+- [x] Fire kaydı (sebep zorunlu), manuel düzeltme (yetki + sebep)
+- [x] Hareket geçmişi: ürün/tarih/tip filtreli, sayfalı
+- [x] Negatif stok politikası: tenant ayarı (uyar / engelle)
 
 ### Kullanılacak ajanlar
 

@@ -11,5 +11,12 @@ export function createPrismaClient(databaseUrl: string): PrismaClient {
     throw new Error('DATABASE_URL boş — Prisma client oluşturulamaz.');
   }
 
-  return new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
+  // pg.Pool URL'deki `connection_limit`'i OKUMAZ (yalnız `max` seçeneğine bakar).
+  // URL'den ayrıştırıp açıkça geçiyoruz — aksi halde havuz sessizce varsayılan 10'da kalır.
+  const parsedMax = Number(new URL(databaseUrl).searchParams.get('connection_limit'));
+  const max = Number.isInteger(parsedMax) && parsedMax > 0 ? parsedMax : undefined;
+
+  return new PrismaClient({
+    adapter: new PrismaPg({ connectionString: databaseUrl, ...(max ? { max } : {}) }),
+  });
 }

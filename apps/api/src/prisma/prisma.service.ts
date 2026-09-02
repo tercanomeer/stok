@@ -139,11 +139,16 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
       throw new Error('withTenant tenant bağlamı olmadan çağrıldı.');
     }
 
-    return this.app.$transaction(async (tx) => {
-      await tx.$executeRaw`SELECT set_config('app.tenant_id', ${resolved}, true)`;
-      // tenantId callback'e de veriliyor: extension onu çalışma zamanında enjekte
-      // ediyor ama Prisma'nın create tipleri onu yine de zorunlu görüyor.
-      return callback(tx, resolved);
-    });
+    return this.app.$transaction(
+      async (tx) => {
+        await tx.$executeRaw`SELECT set_config('app.tenant_id', ${resolved}, true)`;
+        // tenantId callback'e de veriliyor: extension onu çalışma zamanında enjekte
+        // ediyor ama Prisma'nın create tipleri onu yine de zorunlu görüyor.
+        return callback(tx, resolved);
+      },
+      // Stok gibi FOR UPDATE ile serileşen işlemlerde aynı satıra eşzamanlı erişimde
+      // transaction'lar kilit bekler; varsayılan maxWait (2s) yetmiyor.
+      { timeout: 15_000, maxWait: 10_000 },
+    );
   }
 }

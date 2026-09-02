@@ -1,6 +1,7 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ThrottlerGuard, ThrottlerModule, seconds } from '@nestjs/throttler';
 
 import { HttpExceptionFilter } from './common/filters/http-exception.filter.js';
@@ -15,6 +16,7 @@ import { CatalogModule } from './modules/catalog/catalog.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { ProductsModule } from './modules/products/products.module.js';
 import { RolesModule } from './modules/roles/roles.module.js';
+import { StockModule } from './modules/stock/stock.module.js';
 import { UsersModule } from './modules/users/users.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { RedisModule } from './redis/redis.module.js';
@@ -23,6 +25,7 @@ import { StorageModule } from './storage/storage.module.js';
 @Module({
   imports: [
     ConfigModule,
+    EventEmitterModule.forRoot(),
     PrismaModule,
     RedisModule,
     StorageModule,
@@ -50,6 +53,7 @@ import { StorageModule } from './storage/storage.module.js';
     RolesModule,
     CatalogModule,
     ProductsModule,
+    StockModule,
     HealthModule,
   ],
   providers: [
