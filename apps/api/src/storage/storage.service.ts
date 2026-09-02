@@ -87,6 +87,20 @@ export class StorageService implements OnModuleInit {
     return `${this.publicBase}/${key}`;
   }
 
+  /** Rapor export dosyası (xlsx/pdf) — BullMQ export job'ı bunu çağırır. */
+  async uploadExport(
+    tenantId: string,
+    name: string,
+    body: Buffer,
+    contentType: string,
+  ): Promise<string> {
+    const key = `exports/${tenantId}/${randomUUID()}-${name}`;
+    await this.client.send(
+      new PutObjectCommand({ Bucket: this.bucket, Key: key, Body: body, ContentType: contentType }),
+    );
+    return `${this.publicBase}/${key}`;
+  }
+
   get imageConstraints(): { types: readonly string[]; maxBytes: number } {
     return { types: [...ALLOWED_IMAGE_TYPES], maxBytes: MAX_IMAGE_BYTES };
   }

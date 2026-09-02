@@ -20,6 +20,7 @@ export const TENANT_SCOPED_MODELS = [
   'EInvoice',
   'Expense',
   'ExpenseCategory',
+  'ExportJob',
   'ImportJob',
   'Income',
   'Product',

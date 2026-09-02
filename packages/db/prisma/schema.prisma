@@ -88,6 +88,7 @@ model Tenant {
   incomes             Income[]
   eInvoices           EInvoice[]
   importJobs          ImportJob[]
+  exportJobs          ExportJob[]
 
   @@index([status])
   @@map("tenants")
@@ -165,6 +166,7 @@ model User {
   expenses       Expense[]
   incomes        Income[]
   importJobs     ImportJob[]
+  exportJobs     ExportJob[]
 
   @@index([tenantId, createdAt])
   @@index([tenantId, status])
@@ -1095,6 +1097,39 @@ model EInvoice {
 
 enum ImportJobType {
   PRODUCT
+}
+
+enum ExportJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+/// Rapor export'u (Excel/PDF) BullMQ job'ı olarak koşar; istemci jobId ile durum sorgular.
+model ExportJob {
+  id           String          @id @default(cuid())
+  tenantId     String
+  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// Rapor anahtarı (ör. "sales", "profit").
+  report       String
+  /// "XLSX" | "PDF".
+  format       String
+  status       ExportJobStatus @default(PENDING)
+  /// Rapor parametreleri (from/to vb.) — job tekrar üretilebilsin.
+  params       Json            @default("{}")
+  fileUrl      String?
+  errorMessage String?
+
+  createdById String?
+  createdBy   User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([tenantId, createdAt])
+  @@map("export_jobs")
 }
 
 enum ImportJobStatus {

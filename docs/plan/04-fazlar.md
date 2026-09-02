@@ -291,14 +291,14 @@ pnpm test --filter @stokk/api
 
 ### Yapılacak işler
 
-- [ ] Gelir / gider kayıtları + gider kategorileri; kasa ve cari ile ilişki
-- [ ] Raporlar: dashboard özeti, satış raporu, kâr raporu, en çok satanlar, kasiyer performansı, saatlik yoğunluk, stok değeri, cari yaşlandırma, ödeme yöntemi dağılımı, günlük vardiya özeti
-- [ ] Yetki filtresi: maliyet ve kâr yalnız yetkili rollerde döner
-- [ ] Excel (`exceljs`) ve PDF (`pdfkit`) export — BullMQ job'ı, istemci `jobId` ile durumu sorgular
-- [ ] `EInvoiceProvider` interface'i (`createInvoice`, `getStatus`, `getPdf`, `cancel`) + mock implementasyon
-- [ ] `OkcProvider` interface'i (`sendSale`, `sendRefund`, `getDailyReport`, `ping`) + mock implementasyon
-- [ ] `EInvoice` kayıt tablosu ve durum akışı: DRAFT → SENT → ACCEPTED / REJECTED
-- [ ] Satıştan e-arşiv oluşturma akışı, konfigüre edilebilir tutar eşiği
+- [x] Gelir / gider kayıtları + gider kategorileri; kasa ve cari ile ilişki
+- [x] Raporlar: dashboard özeti, satış raporu, kâr raporu, en çok satanlar, kasiyer performansı, saatlik yoğunluk, stok değeri, cari yaşlandırma, ödeme yöntemi dağılımı, günlük vardiya özeti
+- [x] Yetki filtresi: maliyet ve kâr yalnız yetkili rollerde döner
+- [x] Excel (`exceljs`) ve PDF (`pdfkit`) export — BullMQ job'ı, istemci `jobId` ile durumu sorgular
+- [x] `EInvoiceProvider` interface'i (`createInvoice`, `getStatus`, `getPdf`, `cancel`) + mock implementasyon
+- [x] `OkcProvider` interface'i (`sendSale`, `sendRefund`, `getDailyReport`, `ping`) + mock implementasyon
+- [x] `EInvoice` kayıt tablosu ve durum akışı: DRAFT → SENT → ACCEPTED / REJECTED
+- [x] Satıştan e-arşiv oluşturma akışı, konfigüre edilebilir tutar eşiği
 
 ### Kullanılacak ajanlar
 

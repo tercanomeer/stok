@@ -7,6 +7,6 @@ import { ContactsController } from './contacts.controller.js';
 @Module({
   controllers: [ContactsController],
   providers: [ContactService, ContactLedgerService],
-  exports: [ContactService],
+  exports: [ContactService, ContactLedgerService],
 })
 export class ContactsModule {}

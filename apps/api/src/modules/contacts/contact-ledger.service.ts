@@ -151,7 +151,7 @@ export class ContactLedgerService {
    * yaşlandırma yaklaşımıdır.
    */
   async aging(contactId: string): Promise<AgingBuckets> {
-    return this.prisma.withTenant(async (tx) => {
+    return this.prisma.withTenant(async (tx, tenantId) => {
       const contact = await tx.contact.findFirst({
         where: { id: contactId, deletedAt: null },
         select: { id: true },
@@ -159,67 +159,102 @@ export class ContactLedgerService {
       if (!contact) throw new NotFoundError('Cari bulunamadı.');
 
       const txs = await tx.contactTransaction.findMany({
-        where: { contactId },
+        // tenantId açıkça WHERE'de: (tenantId, contactId, createdAt) bileşik indeksi
+        // kullanılsın (yoksa tüm tenant'ları kapsayan seq scan — database-optimizer bulgusu).
+        where: { tenantId, contactId },
         select: { type: true, amount: true, createdAt: true },
         orderBy: { createdAt: 'asc' },
       });
+      return bucketAging(txs);
+    });
+  }
 
-      // FIFO açık borç kuyruğu: her DEBIT bir açık kalem; CREDIT en eski kalemi kapatır.
-      // Açık borçları aşan tahsilat `carry`'de peşin ödeme olarak taşınır ve sonraki
-      // DEBIT'lerden düşülür — yoksa fazla ödeme kaybolur ve aging().total, gerçek
-      // Contact.balance'ı aşar (fazla öde → yeni veresiye al senaryosu).
-      const openDebits: { amount: Prisma.Decimal; date: Date }[] = [];
-      let carry = new Prisma.Decimal(0);
-      for (const t of txs) {
-        if (t.type === 'DEBIT') {
-          let amount = t.amount;
-          if (carry.greaterThan(0)) {
-            const used = carry.lessThan(amount) ? carry : amount;
-            carry = carry.minus(used);
-            amount = amount.minus(used);
-          }
-          if (amount.greaterThan(0)) openDebits.push({ amount, date: t.createdAt });
-        } else {
-          let credit = t.amount;
-          while (credit.greaterThan(0) && openDebits.length > 0) {
-            const head = openDebits[0]!;
-            if (head.amount.lessThanOrEqualTo(credit)) {
-              credit = credit.minus(head.amount);
-              openDebits.shift();
-            } else {
-              head.amount = head.amount.minus(credit);
-              credit = new Prisma.Decimal(0);
-            }
-          }
-          if (credit.greaterThan(0)) carry = carry.plus(credit);
-        }
+  /**
+   * Çok cari için TEK sorguda yaşlandırma (rapor için). Cari başına ayrı transaction açmak
+   * (N+1) yerine tüm hareketleri tek findMany ile çeker, bellekte cari bazında kovalar
+   * (performance-engineer/database-optimizer bulgusu).
+   */
+  async agingForContacts(contactIds: string[]): Promise<Map<string, AgingBuckets>> {
+    if (contactIds.length === 0) return new Map();
+    return this.prisma.withTenant(async (tx, tenantId) => {
+      const rows = await tx.contactTransaction.findMany({
+        where: { tenantId, contactId: { in: contactIds } },
+        select: { contactId: true, type: true, amount: true, createdAt: true },
+        orderBy: [{ contactId: 'asc' }, { createdAt: 'asc' }],
+      });
+      const grouped = new Map<
+        string,
+        { type: string; amount: Prisma.Decimal; createdAt: Date }[]
+      >();
+      for (const row of rows) {
+        const list = grouped.get(row.contactId) ?? [];
+        list.push({ type: row.type, amount: row.amount, createdAt: row.createdAt });
+        grouped.set(row.contactId, list);
       }
-
-      const now = Date.now();
-      const bucket = { current: z(), days31to60: z(), days61to90: z(), over90: z() };
-      for (const debit of openDebits) {
-        const ageDays = Math.floor((now - debit.date.getTime()) / 86_400_000);
-        if (ageDays <= 30) bucket.current = bucket.current.plus(debit.amount);
-        else if (ageDays <= 60) bucket.days31to60 = bucket.days31to60.plus(debit.amount);
-        else if (ageDays <= 90) bucket.days61to90 = bucket.days61to90.plus(debit.amount);
-        else bucket.over90 = bucket.over90.plus(debit.amount);
+      const result = new Map<string, AgingBuckets>();
+      for (const contactId of contactIds) {
+        result.set(contactId, bucketAging(grouped.get(contactId) ?? []));
       }
-
-      const total = bucket.current
-        .plus(bucket.days31to60)
-        .plus(bucket.days61to90)
-        .plus(bucket.over90);
-      return {
-        current: bucket.current.toFixed(2),
-        days31to60: bucket.days31to60.toFixed(2),
-        days61to90: bucket.days61to90.toFixed(2),
-        over90: bucket.over90.toFixed(2),
-        total: total.toFixed(2),
-      };
+      return result;
     });
   }
 }
 
 function z(): Prisma.Decimal {
   return new Prisma.Decimal(0);
+}
+
+/**
+ * FIFO yaşlandırma — saf fonksiyon (DB'siz). DEBIT açık kalem, CREDIT en eski kalemi kapatır;
+ * açık borçları aşan tahsilat `carry`'de peşin ödeme olarak taşınır ve sonraki DEBIT'lerden
+ * düşülür (yoksa fazla ödeme kaybolur, total gerçek bakiyeyi aşar — Faz 5 kararı).
+ */
+function bucketAging(
+  txs: { type: string; amount: Prisma.Decimal; createdAt: Date }[],
+): AgingBuckets {
+  const openDebits: { amount: Prisma.Decimal; date: Date }[] = [];
+  let carry = new Prisma.Decimal(0);
+  for (const t of txs) {
+    if (t.type === 'DEBIT') {
+      let amount = t.amount;
+      if (carry.greaterThan(0)) {
+        const used = carry.lessThan(amount) ? carry : amount;
+        carry = carry.minus(used);
+        amount = amount.minus(used);
+      }
+      if (amount.greaterThan(0)) openDebits.push({ amount, date: t.createdAt });
+    } else {
+      let credit = t.amount;
+      while (credit.greaterThan(0) && openDebits.length > 0) {
+        const head = openDebits[0]!;
+        if (head.amount.lessThanOrEqualTo(credit)) {
+          credit = credit.minus(head.amount);
+          openDebits.shift();
+        } else {
+          head.amount = head.amount.minus(credit);
+          credit = new Prisma.Decimal(0);
+        }
+      }
+      if (credit.greaterThan(0)) carry = carry.plus(credit);
+    }
+  }
+
+  const now = Date.now();
+  const bucket = { current: z(), days31to60: z(), days61to90: z(), over90: z() };
+  for (const debit of openDebits) {
+    const ageDays = Math.floor((now - debit.date.getTime()) / 86_400_000);
+    if (ageDays <= 30) bucket.current = bucket.current.plus(debit.amount);
+    else if (ageDays <= 60) bucket.days31to60 = bucket.days31to60.plus(debit.amount);
+    else if (ageDays <= 90) bucket.days61to90 = bucket.days61to90.plus(debit.amount);
+    else bucket.over90 = bucket.over90.plus(debit.amount);
+  }
+
+  const total = bucket.current.plus(bucket.days31to60).plus(bucket.days61to90).plus(bucket.over90);
+  return {
+    current: bucket.current.toFixed(2),
+    days31to60: bucket.days31to60.toFixed(2),
+    days61to90: bucket.days61to90.toFixed(2),
+    over90: bucket.over90.toFixed(2),
+    total: total.toFixed(2),
+  };
 }

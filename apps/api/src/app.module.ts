@@ -15,10 +15,14 @@ import { AuthModule } from './modules/auth/auth.module.js';
 import { CashSessionsModule } from './modules/cash-sessions/cash-sessions.module.js';
 import { CatalogModule } from './modules/catalog/catalog.module.js';
 import { ContactsModule } from './modules/contacts/contacts.module.js';
+import { EInvoiceModule } from './modules/einvoice/einvoice.module.js';
+import { ExportModule } from './modules/export/export.module.js';
+import { FinanceModule } from './modules/finance/finance.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { ProductsModule } from './modules/products/products.module.js';
 import { PurchasesModule } from './modules/purchases/purchases.module.js';
 import { RegistersModule } from './modules/registers/registers.module.js';
+import { ReportsModule } from './modules/reports/reports.module.js';
 import { RolesModule } from './modules/roles/roles.module.js';
 import { SalesModule } from './modules/sales/sales.module.js';
 import { StockModule } from './modules/stock/stock.module.js';
@@ -66,6 +70,10 @@ import { StorageModule } from './storage/storage.module.js';
     CashSessionsModule,
     SalesModule,
     SyncModule,
+    FinanceModule,
+    ReportsModule,
+    ExportModule,
+    EInvoiceModule,
     HealthModule,
   ],
   providers: [
