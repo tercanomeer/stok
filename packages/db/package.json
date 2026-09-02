@@ -21,9 +21,9 @@
     "lint": "eslint .",
     "test": "vitest run",
     "migrate": "prisma migrate dev",
-    "reset": "prisma migrate reset --force",
+    "reset": "prisma migrate reset --force && prisma db seed",
     "seed": "tsx prisma/seed.ts",
-    "studio": "prisma studio",
+    "studio": "prisma studio --port 5555 --browser none",
     "validate": "prisma validate",
     "clean": "rm -rf dist .turbo src/generated *.tsbuildinfo"
   },

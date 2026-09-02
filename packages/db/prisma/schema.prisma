@@ -1,18 +1,1070 @@
 // Stokk veri modeli.
-// Faz 0: yalnızca datasource + generator iskeleti.
-// Gerçek tablolar (Tenant, User, Product, StockMovement, Sale ...) Faz 1'de eklenir.
 //
-// Prisma 7: `url` artık şemada tanımlanmıyor. Migration/introspection bağlantısı
-// prisma.config.ts içinde, runtime bağlantısı ise PrismaClient'a verilen
-// driver adapter (@prisma/adapter-pg) üzerinden kuruluyor.
+// Kurallar (CLAUDE.md "Değişmez kurallar" → Veri):
+//  - Multi-tenancy row-level: TEK istisna dışında her tabloda `tenantId` var.
+//    İstisna `Permission`: sistem geneli izin kataloğu, içinde tenant verisi yok,
+//    tenant sınırı ona referans veren `Role` üzerinde. (Kullanıcıya soruldu, onaylandı.)
+//  - Para `Decimal(12,2)`, miktar `Decimal(12,3)`. Float ile para hesabı yasak.
+//    İstisna: birim maliyet alanları `Decimal(14,4)` — ağırlıklı ortalama her alışta
+//    yeniden hesaplandığı için 2 hanede yuvarlama sapması birikiyor.
+//  - Tarih UTC saklanır, `Europe/Istanbul` gösterilir.
+//
+// Prisma 7: `url` datasource'ta tanımlanmıyor. Migration bağlantısı prisma.config.ts'te,
+// runtime bağlantısı PrismaClient'a verilen driver adapter (@prisma/adapter-pg) üzerinden.
 
 datasource db {
-  provider = "postgresql"
+  provider   = "postgresql"
+  extensions = [pg_trgm]
 }
 
 generator client {
-  provider     = "prisma-client"
-  output       = "../src/generated/prisma"
-  moduleFormat = "cjs"
-  runtime      = "nodejs"
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  moduleFormat    = "cjs"
+  runtime         = "nodejs"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+// ===========================================================================
+// Kimlik & yetki
+// ===========================================================================
+
+enum TenantStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  SUSPENDED
+}
+
+enum SubscriptionPlan {
+  BASIC
+  PLUS
+  PREMIUM
+}
+
+model Tenant {
+  id           String           @id @default(cuid())
+  name         String
+  legalName    String?
+  taxNumber    String?
+  taxOffice    String?
+  phone        String?
+  email        String?
+  address      String?
+  plan         SubscriptionPlan @default(BASIC)
+  status       TenantStatus     @default(TRIAL)
+  trialEndsAt  DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  settings            TenantSettings?
+  users               User[]
+  roles               Role[]
+  refreshTokens       RefreshToken[]
+  auditLogs           AuditLog[]
+  categories          Category[]
+  brands              Brand[]
+  units               Unit[]
+  products            Product[]
+  barcodes            Barcode[]
+  priceHistory        ProductPriceHistory[]
+  stockMovements      StockMovement[]
+  stockCounts         StockCount[]
+  stockCountItems     StockCountItem[]
+  contacts            Contact[]
+  contactTransactions ContactTransaction[]
+  purchases           Purchase[]
+  purchaseItems       PurchaseItem[]
+  registers           Register[]
+  cashSessions        CashSession[]
+  cashMovements       CashMovement[]
+  sales               Sale[]
+  saleItems           SaleItem[]
+  salePayments        SalePayment[]
+  saleReturns         SaleReturn[]
+  saleReturnItems     SaleReturnItem[]
+  expenseCategories   ExpenseCategory[]
+  expenses            Expense[]
+  incomes             Income[]
+  eInvoices           EInvoice[]
+
+  @@index([status])
+  @@map("tenants")
+}
+
+enum NegativeStockPolicy {
+  WARN
+  BLOCK
+}
+
+model TenantSettings {
+  id       String @id @default(cuid())
+  tenantId String @unique
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  /// Tenant'ın kullandığı KDV oranları (TR'de yaygın: 1, 10, 20). Ürün oranını bu listeden seçer.
+  vatRates            Int[]               @default([1, 10, 20])
+  defaultVatRate      Int                 @default(20)
+  currency            String              @default("TRY")
+  timezone            String              @default("Europe/Istanbul")
+  negativeStockPolicy NegativeStockPolicy @default(WARN)
+  /// %10 üzeri indirim `sale.discount.high` izni ister — eşik tenant'a göre değişebilir.
+  highDiscountThreshold Decimal           @default("10.00") @db.Decimal(5, 2)
+  /// Vardiya kapanışında rapor edilecek fark eşiği.
+  cashDifferenceThreshold Decimal         @default("5.00") @db.Decimal(12, 2)
+  /// Terazi barkodu prefix'i (örn. "27", "28"). Boşsa tartılı barkod ayrıştırması kapalı.
+  scaleBarcodePrefixes String[]           @default([])
+  /// Bu tutarın üzerindeki mükellef olmayan satışlarda e-Arşiv üretilir.
+  eArchiveThreshold   Decimal             @default("5000.00") @db.Decimal(12, 2)
+  receiptHeader       String?
+  receiptFooter       String?
+  logoUrl             String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("tenant_settings")
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model User {
+  id           String     @id @default(cuid())
+  tenantId     String
+  tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  email        String
+  passwordHash String
+  fullName     String
+  phone        String?
+  status       UserStatus @default(ACTIVE)
+  /// TOTP secret'ı. Null ise 2FA kapalı.
+  totpSecret   String?
+  lastLoginAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  deletedAt    DateTime?
+
+  roles            UserRole[]
+  refreshTokens    RefreshToken[]
+  auditLogs        AuditLog[]
+  cashSessions     CashSession[]
+  cashMovements    CashMovement[]
+  sales            Sale[]
+  saleReturns      SaleReturn[]
+  stockMovements   StockMovement[]
+  stockCounts      StockCount[]
+  purchases        Purchase[]
+  priceHistory     ProductPriceHistory[]
+  expenses         Expense[]
+  incomes          Income[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, status])
+  @@map("users")
+}
+
+/// Sistem geneli izin kataloğu. Tenant'a bağlı DEĞİLDİR — içinde tenant verisi yok,
+/// tenant sınırı buna referans veren `Role` üzerinde. Kaynak: @stokk/types PERMISSIONS.
+model Permission {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  resource    String
+  action      String
+  description String?
+  createdAt   DateTime @default(now())
+
+  roles RolePermission[]
+
+  @@index([resource])
+  @@map("permissions")
+}
+
+model Role {
+  id          String  @id @default(cuid())
+  tenantId    String
+  tenant      Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  /// Sistem rolleri (Patron/Yönetici/Kasiyer) silinemez ve adı değiştirilemez.
+  isSystem    Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  permissions RolePermission[]
+  users       UserRole[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId, createdAt])
+  @@map("roles")
+}
+
+model RolePermission {
+  roleId       String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permissionId String
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleId    String
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([userId, roleId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  tenantId  String
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Token'ın kendisi değil, SHA-256 özeti saklanır.
+  tokenHash String    @unique
+  /// Rotasyon zinciri: bu token hangi token'ın yerine üretildi.
+  replacedById String?
+  expiresAt DateTime
+  revokedAt DateTime?
+  userAgent String?
+  ipAddress String?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, expiresAt])
+  @@index([tenantId, createdAt])
+  @@map("refresh_tokens")
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  LOGIN_FAILED
+}
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  tenantId   String
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userId     String?
+  user       User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     AuditAction
+  entity     String
+  entityId   String?
+  /// Değişen alanlar. PII (şifre, kart no, CVV) ASLA yazılmaz — CLAUDE.md.
+  changes    Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime    @default(now())
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, entity, entityId])
+  @@index([tenantId, userId, createdAt])
+  @@map("audit_logs")
+}
+
+// ===========================================================================
+// Katalog & ürün
+// ===========================================================================
+
+model Category {
+  id        String    @id @default(cuid())
+  tenantId  String
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  parentId  String?
+  parent    Category? @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children  Category[] @relation("CategoryTree")
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  products Product[]
+
+  @@unique([tenantId, name, parentId])
+  @@index([tenantId, deletedAt])
+  @@map("categories")
+}
+
+model Brand {
+  id        String    @id @default(cuid())
+  tenantId  String
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  products Product[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId, deletedAt])
+  @@map("brands")
+}
+
+model Unit {
+  id           String    @id @default(cuid())
+  tenantId     String
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name         String
+  abbreviation String
+  /// Ondalıklı miktar kabul eder mi (kg/lt evet, adet hayır).
+  allowsDecimal Boolean  @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  products Product[]
+
+  @@unique([tenantId, abbreviation])
+  @@index([tenantId, deletedAt])
+  @@map("units")
+}
+
+model Product {
+  id         String  @id @default(cuid())
+  tenantId   String
+  tenant     Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name       String
+  /// İşletmenin kendi ürün kodu (stok kodu). Tenant içinde benzersiz.
+  code       String?
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  brandId    String?
+  brand      Brand?    @relation(fields: [brandId], references: [id], onDelete: Restrict)
+  unitId     String
+  unit       Unit      @relation(fields: [unitId], references: [id], onDelete: Restrict)
+
+  /// Satış fiyatı KDV DAHİL girilir ve gösterilir — 01-proje.md "Para & KDV".
+  salePrice     Decimal @db.Decimal(12, 2)
+  /// Ağırlıklı ortalama maliyet, KDV HARİÇ. Alış faturasında güncellenir.
+  /// 4 ondalık: ortalama her alışta yeniden hesaplanıyor; 2 hanede saklanırsa
+  /// her adımda kuruşa yuvarlanır ve sapma birikir (telafi mekanizması yok).
+  averageCost   Decimal @default("0.0000") @db.Decimal(14, 4)
+  /// Son alış fiyatı, KDV hariç.
+  lastPurchasePrice Decimal? @db.Decimal(12, 2)
+  vatRate       Int
+
+  /// Stok hareketlerinden türetilen denormalize değer. Transaction içinde güncellenir,
+  /// tek doğruluk kaynağı `stock_movements` defteridir.
+  stockQuantity Decimal @default("0.000") @db.Decimal(12, 3)
+  criticalLevel Decimal @default("0.000") @db.Decimal(12, 3)
+  trackStock    Boolean @default(true)
+  /// Tartılı ürün: terazi barkodu ile satılır, miktar ondalıklıdır.
+  isWeighed     Boolean @default(false)
+  isActive      Boolean @default(true)
+  imageUrl      String?
+  description   String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  barcodes        Barcode[]
+  priceHistory    ProductPriceHistory[]
+  stockMovements  StockMovement[]
+  stockCountItems StockCountItem[]
+  purchaseItems   PurchaseItem[]
+  saleItems       SaleItem[]
+  saleReturnItems SaleReturnItem[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, deletedAt, isActive])
+  @@index([tenantId, categoryId])
+  @@index([tenantId, brandId])
+  @@index([tenantId, createdAt])
+  /// Ad ile arama: 20.000 üründe hızlı olmalı (Faz 3 doğrulaması < 100 ms).
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@map("products")
+}
+
+model Barcode {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  value     String
+  /// Ürünün birincil barkodu — etiket basımında bu kullanılır.
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@unique([tenantId, value])
+  @@index([productId])
+  @@map("barcodes")
+}
+
+model ProductPriceHistory {
+  id           String   @id @default(cuid())
+  tenantId     String
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  productId    String
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  oldPrice     Decimal  @db.Decimal(12, 2)
+  newPrice     Decimal  @db.Decimal(12, 2)
+  changedById  String?
+  changedBy    User?    @relation(fields: [changedById], references: [id], onDelete: SetNull)
+  reason       String?
+  createdAt    DateTime @default(now())
+
+  @@index([tenantId, productId, createdAt])
+  @@map("product_price_history")
+}
+
+// ===========================================================================
+// Stok — hareket defteri (ledger)
+// ===========================================================================
+
+enum StockMovementType {
+  SALE
+  SALE_RETURN
+  PURCHASE
+  PURCHASE_RETURN
+  COUNT_ADJUSTMENT
+  WASTE
+  MANUAL_ADJUSTMENT
+}
+
+/// Stok bir hareket defteridir. Anlık miktar hareketlerden türetilir, elle set edilmez.
+/// `Product.stockQuantity` performans için tutulan denormalize kopyadır.
+model StockMovement {
+  id        String            @id @default(cuid())
+  tenantId  String
+  tenant    Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product           @relation(fields: [productId], references: [id], onDelete: Restrict)
+  type      StockMovementType
+  /// İşaretli miktar: giriş pozitif, çıkış negatif.
+  quantity  Decimal           @db.Decimal(12, 3)
+  /// Hareket sonrası çalışan bakiye — denormalize alanla tutarlılık kontrolü için.
+  balanceAfter Decimal        @db.Decimal(12, 3)
+  /// Hareket anındaki birim maliyet (KDV hariç). averageCost ile aynı hassasiyet.
+  unitCost  Decimal?          @db.Decimal(14, 4)
+
+  /// Hareketi doğuran belge. Tip başına yalnız biri dolu olur.
+  saleId       String?
+  sale         Sale?       @relation(fields: [saleId], references: [id], onDelete: Restrict)
+  saleReturnId String?
+  saleReturn   SaleReturn? @relation(fields: [saleReturnId], references: [id], onDelete: Restrict)
+  purchaseId   String?
+  purchase     Purchase?   @relation(fields: [purchaseId], references: [id], onDelete: Restrict)
+  stockCountId String?
+  stockCount   StockCount? @relation(fields: [stockCountId], references: [id], onDelete: Restrict)
+
+  /// Fire ve manuel düzeltmede sebep zorunlu — servis katmanında zorlanır.
+  reason      String?
+  createdById String?
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, productId, createdAt])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, type, createdAt])
+  @@index([saleId])
+  @@index([purchaseId])
+  @@map("stock_movements")
+}
+
+enum StockCountStatus {
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model StockCount {
+  id          String           @id @default(cuid())
+  tenantId    String
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  code        String
+  status      StockCountStatus @default(IN_PROGRESS)
+  note        String?
+  startedById String?
+  startedBy   User?            @relation(fields: [startedById], references: [id], onDelete: SetNull)
+  startedAt   DateTime         @default(now())
+  completedAt DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  items     StockCountItem[]
+  movements StockMovement[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, status, createdAt])
+  @@map("stock_counts")
+}
+
+model StockCountItem {
+  id           String     @id @default(cuid())
+  tenantId     String
+  tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  stockCountId String
+  stockCount   StockCount @relation(fields: [stockCountId], references: [id], onDelete: Cascade)
+  productId    String
+  product      Product    @relation(fields: [productId], references: [id], onDelete: Restrict)
+  /// Sayım başladığında sistemdeki miktar.
+  expectedQuantity Decimal @db.Decimal(12, 3)
+  /// Fiilen sayılan miktar.
+  countedQuantity  Decimal @db.Decimal(12, 3)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([stockCountId, productId])
+  @@index([tenantId, stockCountId])
+  @@map("stock_count_items")
+}
+
+// ===========================================================================
+// Cari & alış
+// ===========================================================================
+
+enum ContactType {
+  CUSTOMER
+  SUPPLIER
+  BOTH
+}
+
+model Contact {
+  id        String      @id @default(cuid())
+  tenantId  String
+  tenant    Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  type      ContactType
+  name      String
+  code      String?
+  taxNumber String?
+  taxOffice String?
+  phone     String?
+  email     String?
+  address   String?
+
+  /// Veresiye kredi limiti. 0 = limitsiz değil, sıfır limit.
+  creditLimit Decimal @default("0.00") @db.Decimal(12, 2)
+  /// Cari hareketlerden türetilen denormalize bakiye. Pozitif = bize borçlu.
+  balance     Decimal @default("0.00") @db.Decimal(12, 2)
+  isActive    Boolean @default(true)
+  note        String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  transactions ContactTransaction[]
+  purchases    Purchase[]
+  sales        Sale[]
+  eInvoices    EInvoice[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, type, deletedAt])
+  @@index([tenantId, createdAt])
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@map("contacts")
+}
+
+enum ContactTransactionType {
+  /// Borç: cariye mal/hizmet verildi (veresiye satış, alış faturası bize borç).
+  DEBIT
+  /// Alacak: tahsilat veya ödeme.
+  CREDIT
+}
+
+model ContactTransaction {
+  id        String                 @id @default(cuid())
+  tenantId  String
+  tenant    Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contactId String
+  contact   Contact                @relation(fields: [contactId], references: [id], onDelete: Restrict)
+  type      ContactTransactionType
+  amount    Decimal                @db.Decimal(12, 2)
+  /// Hareket sonrası çalışan bakiye.
+  balanceAfter Decimal             @db.Decimal(12, 2)
+
+  saleId     String?
+  sale       Sale?     @relation(fields: [saleId], references: [id], onDelete: Restrict)
+  purchaseId String?
+  purchase   Purchase? @relation(fields: [purchaseId], references: [id], onDelete: Restrict)
+
+  paymentMethod PaymentMethod?
+  description   String?
+  createdAt     DateTime       @default(now())
+
+  @@index([tenantId, contactId, createdAt])
+  @@index([tenantId, createdAt])
+  @@map("contact_transactions")
+}
+
+enum PurchaseStatus {
+  DRAFT
+  COMPLETED
+  CANCELLED
+}
+
+model Purchase {
+  id         String         @id @default(cuid())
+  tenantId   String
+  tenant     Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contactId  String
+  contact    Contact        @relation(fields: [contactId], references: [id], onDelete: Restrict)
+  /// Tedarikçinin fatura numarası.
+  invoiceNo  String?
+  status     PurchaseStatus @default(DRAFT)
+  invoiceDate DateTime
+
+  subtotal      Decimal @db.Decimal(12, 2)
+  discountTotal Decimal @default("0.00") @db.Decimal(12, 2)
+  vatTotal      Decimal @db.Decimal(12, 2)
+  grandTotal    Decimal @db.Decimal(12, 2)
+
+  note        String?
+  createdById String?
+  createdBy   User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  cancelledAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  items                PurchaseItem[]
+  stockMovements       StockMovement[]
+  contactTransactions  ContactTransaction[]
+
+  @@unique([tenantId, contactId, invoiceNo])
+  @@index([tenantId, status, invoiceDate])
+  @@index([tenantId, createdAt])
+  @@map("purchases")
+}
+
+model PurchaseItem {
+  id         String   @id @default(cuid())
+  tenantId   String
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  purchaseId String
+  purchase   Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  quantity     Decimal @db.Decimal(12, 3)
+  /// Birim alış fiyatı, KDV HARİÇ — maliyet ve indirilecek KDV bu ayrımı gerektiriyor.
+  unitPrice    Decimal @db.Decimal(12, 2)
+  discountRate Decimal @default("0.00") @db.Decimal(5, 2)
+  vatRate      Int
+  lineTotal    Decimal @db.Decimal(12, 2)
+  vatAmount    Decimal @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, purchaseId])
+  @@index([tenantId, productId, createdAt])
+  @@map("purchase_items")
+}
+
+// ===========================================================================
+// Kasa, vardiya & satış
+// ===========================================================================
+
+model Register {
+  id        String    @id @default(cuid())
+  tenantId  String
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  /// POS kurulum sihirbazında girilen cihaz kimliği.
+  deviceId  String?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  cashSessions CashSession[]
+  sales        Sale[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId, deletedAt])
+  @@map("registers")
+}
+
+enum CashSessionStatus {
+  OPEN
+  CLOSED
+}
+
+/// Vardiya: bir kasiyerin kasa açılış–kapanış aralığı.
+/// Satış her zaman açık bir vardiyaya bağlıdır — 01-proje.md "Satış".
+model CashSession {
+  id         String            @id @default(cuid())
+  tenantId   String
+  tenant     Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  registerId String
+  register   Register          @relation(fields: [registerId], references: [id], onDelete: Restrict)
+  userId     String
+  user       User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  status     CashSessionStatus @default(OPEN)
+
+  /// Açılışta sayılan nakit.
+  openingAmount Decimal  @db.Decimal(12, 2)
+  /// Kapanışta sayılan nakit.
+  closingAmount Decimal? @db.Decimal(12, 2)
+  /// açılış + nakit satış + tahsilat − gider − nakit iade
+  expectedAmount Decimal? @db.Decimal(12, 2)
+  /// closingAmount − expectedAmount. Eşiği aşarsa uyarılır ama vardiya yine kapanır.
+  differenceAmount Decimal? @db.Decimal(12, 2)
+
+  openedAt  DateTime  @default(now())
+  closedAt  DateTime?
+  note      String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  movements CashMovement[]
+  sales     Sale[]
+  expenses  Expense[]
+  incomes   Income[]
+
+  @@index([tenantId, status, openedAt])
+  @@index([tenantId, userId, openedAt])
+  @@index([registerId, status])
+  @@map("cash_sessions")
+}
+
+enum CashMovementType {
+  OPENING
+  SALE
+  SALE_REFUND
+  COLLECTION
+  PAYMENT
+  EXPENSE
+  DEPOSIT
+  WITHDRAWAL
+  CLOSING
+}
+
+model CashMovement {
+  id            String           @id @default(cuid())
+  tenantId      String
+  tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  cashSessionId String
+  cashSession   CashSession      @relation(fields: [cashSessionId], references: [id], onDelete: Cascade)
+  type          CashMovementType
+  /// İşaretli tutar: kasaya giriş pozitif, çıkış negatif.
+  amount        Decimal          @db.Decimal(12, 2)
+  description   String?
+
+  /// Hareketi doğuran belge. Vardiya kapanış mutabakatının denetlenebilmesi için
+  /// serbest string değil, gerçek FK.
+  saleId      String?
+  sale        Sale?    @relation(fields: [saleId], references: [id], onDelete: Restrict)
+  createdById String?
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, cashSessionId, createdAt])
+  @@index([saleId])
+  @@index([tenantId, createdAt])
+  @@map("cash_movements")
+}
+
+enum SaleStatus {
+  /// Yarım bırakılıp sonra devam edilecek satış.
+  PARKED
+  COMPLETED
+  /// Aynı vardiya içinde, fiş kapanmadan iptal.
+  CANCELLED
+  PARTIALLY_RETURNED
+  RETURNED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  /// Veresiye — cariye borç yazılır, müşteri zorunlu.
+  CREDIT
+  TRANSFER
+}
+
+model Sale {
+  id            String      @id @default(cuid())
+  tenantId      String
+  tenant        Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  cashSessionId String
+  cashSession   CashSession @relation(fields: [cashSessionId], references: [id], onDelete: Restrict)
+  registerId    String
+  register      Register    @relation(fields: [registerId], references: [id], onDelete: Restrict)
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  contactId     String?
+  contact       Contact?    @relation(fields: [contactId], references: [id], onDelete: Restrict)
+
+  /// Tenant başına ardışık fiş numarası. Offline satış senkronizasyonda numara alır.
+  receiptNo String
+  /// POS'un ürettiği UUID. Sync at-least-once çalışır; aynı id ikinci kez gelirse
+  /// yeni satış açılmaz, mevcut satış döner — 01-proje.md "Offline".
+  clientSaleId String?
+  status       SaleStatus @default(COMPLETED)
+
+  subtotal      Decimal @db.Decimal(12, 2)
+  discountTotal Decimal @default("0.00") @db.Decimal(12, 2)
+  vatTotal      Decimal @db.Decimal(12, 2)
+  grandTotal    Decimal @db.Decimal(12, 2)
+  /// KDV oranı bazında matrah/vergi kırılımı — fişte ayrı satır olarak basılır.
+  vatBreakdown  Json
+
+  /// Satışın POS'ta gerçekleştiği an. Offline satışta createdAt'ten farklıdır.
+  soldAt      DateTime  @default(now())
+  cancelledAt DateTime?
+  note        String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  items               SaleItem[]
+  payments            SalePayment[]
+  returns             SaleReturn[]
+  stockMovements      StockMovement[]
+  contactTransactions ContactTransaction[]
+  cashMovements       CashMovement[]
+  eInvoices           EInvoice[]
+
+  @@unique([tenantId, receiptNo])
+  @@unique([tenantId, clientSaleId])
+  @@index([tenantId, soldAt])
+  @@index([tenantId, status, soldAt])
+  @@index([tenantId, userId, soldAt])
+  @@index([tenantId, contactId, soldAt])
+  @@index([cashSessionId])
+  @@map("sales")
+}
+
+model SaleItem {
+  id        String  @id @default(cuid())
+  tenantId  String
+  tenant    Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  saleId    String
+  sale      Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  /// Ürün adı satış anında dondurulur; ürün sonradan yeniden adlandırılsa da fiş değişmez.
+  productName String
+  quantity    Decimal @db.Decimal(12, 3)
+  /// Birim satış fiyatı, KDV DAHİL.
+  unitPrice   Decimal @db.Decimal(12, 2)
+  discountRate Decimal @default("0.00") @db.Decimal(5, 2)
+  vatRate     Int
+  /// KDV hariç matrah.
+  netAmount   Decimal @db.Decimal(12, 2)
+  vatAmount   Decimal @db.Decimal(12, 2)
+  lineTotal   Decimal @db.Decimal(12, 2)
+  /// Satış anındaki ağırlıklı ortalama maliyet — kâr raporu bunu kullanır.
+  /// averageCost'un dondurulmuş kopyası, aynı hassasiyette.
+  unitCost    Decimal @default("0.0000") @db.Decimal(14, 4)
+  note        String?
+
+  createdAt DateTime @default(now())
+
+  returnItems SaleReturnItem[]
+
+  @@index([tenantId, saleId])
+  @@index([tenantId, productId, createdAt])
+  @@map("sale_items")
+}
+
+model SalePayment {
+  id       String        @id @default(cuid())
+  tenantId String
+  tenant   Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  saleId   String
+  sale     Sale          @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  method   PaymentMethod
+  /// Parçaların toplamı fiş tutarına birebir eşit olmak zorunda — servis katmanında zorlanır.
+  amount   Decimal       @db.Decimal(12, 2)
+  /// Nakit ödemede müşterinin verdiği tutar; para üstü bundan hesaplanır.
+  receivedAmount Decimal? @db.Decimal(12, 2)
+  reference String?
+  createdAt DateTime      @default(now())
+
+  @@index([tenantId, saleId])
+  /// Ödeme yöntemi dağılımı raporu önce tarihe göre filtreliyor; method yalnız 4 değer
+  /// taşıdığı için lider sütun olarak seçici değil ve alttaki indeks o sorguya hizmet etmiyor.
+  @@index([tenantId, createdAt])
+  /// Tek bir ödeme yönteminin zaman içindeki dökümü (drill-down) için.
+  @@index([tenantId, method, createdAt])
+  @@map("sale_payments")
+}
+
+model SaleReturn {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// İade her zaman orijinal fişe referansla yapılır — 01-proje.md "Satış".
+  saleId   String
+  sale     Sale   @relation(fields: [saleId], references: [id], onDelete: Restrict)
+
+  returnNo      String
+  totalAmount   Decimal       @db.Decimal(12, 2)
+  refundMethod  PaymentMethod
+  reason        String
+  createdById   String?
+  createdBy     User?         @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt     DateTime      @default(now())
+
+  items          SaleReturnItem[]
+  stockMovements StockMovement[]
+
+  @@unique([tenantId, returnNo])
+  @@index([tenantId, saleId])
+  @@index([tenantId, createdAt])
+  @@map("sale_returns")
+}
+
+model SaleReturnItem {
+  id           String     @id @default(cuid())
+  tenantId     String
+  tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  saleReturnId String
+  saleReturn   SaleReturn @relation(fields: [saleReturnId], references: [id], onDelete: Cascade)
+  saleItemId   String
+  saleItem     SaleItem   @relation(fields: [saleItemId], references: [id], onDelete: Restrict)
+  productId    String
+  product      Product    @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  quantity  Decimal @db.Decimal(12, 3)
+  unitPrice Decimal @db.Decimal(12, 2)
+  vatRate   Int
+  lineTotal Decimal @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, saleReturnId])
+  @@index([saleItemId])
+  @@map("sale_return_items")
+}
+
+// ===========================================================================
+// Finans
+// ===========================================================================
+
+model ExpenseCategory {
+  id        String    @id @default(cuid())
+  tenantId  String
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  expenses Expense[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId, deletedAt])
+  @@map("expense_categories")
+}
+
+model Expense {
+  id         String           @id @default(cuid())
+  tenantId   String
+  tenant     Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  categoryId String?
+  category   ExpenseCategory? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  amount        Decimal        @db.Decimal(12, 2)
+  paymentMethod PaymentMethod
+  description   String
+  expenseDate   DateTime
+  /// Kasadan ödendiyse hangi vardiyaya düştüğü. Vardiya kapanışındaki
+  /// "− gider" kaleminin denetlenebilmesi için gerçek FK.
+  cashSessionId String?
+  cashSession   CashSession? @relation(fields: [cashSessionId], references: [id], onDelete: Restrict)
+  documentNo    String?
+
+  createdById String?
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId, expenseDate])
+  @@index([cashSessionId])
+  @@index([tenantId, categoryId, expenseDate])
+  @@map("expenses")
+}
+
+model Income {
+  id       String @id @default(cuid())
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  amount        Decimal       @db.Decimal(12, 2)
+  paymentMethod PaymentMethod
+  description   String
+  incomeDate    DateTime
+  cashSessionId String?
+  cashSession   CashSession? @relation(fields: [cashSessionId], references: [id], onDelete: Restrict)
+  documentNo    String?
+
+  createdById String?
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId, incomeDate])
+  @@index([cashSessionId])
+  @@map("incomes")
+}
+
+// ===========================================================================
+// Yasal — e-Fatura / e-Arşiv
+// ===========================================================================
+
+enum EInvoiceType {
+  E_INVOICE
+  E_ARCHIVE
+}
+
+enum EInvoiceStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  REJECTED
+  CANCELLED
+}
+
+model EInvoice {
+  id        String         @id @default(cuid())
+  tenantId  String
+  tenant    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  saleId    String?
+  sale      Sale?          @relation(fields: [saleId], references: [id], onDelete: Restrict)
+  contactId String?
+  contact   Contact?       @relation(fields: [contactId], references: [id], onDelete: Restrict)
+
+  type      EInvoiceType
+  status    EInvoiceStatus @default(DRAFT)
+  /// Entegratörün döndüğü belge numarası (UUID/ETTN).
+  externalId String?
+  invoiceNo  String?
+  totalAmount Decimal       @db.Decimal(12, 2)
+  vatTotal    Decimal       @db.Decimal(12, 2)
+  pdfUrl      String?
+  /// Entegratörün son yanıtı; hata ayıklama için. PII yazılmaz.
+  providerResponse Json?
+  errorMessage String?
+
+  sentAt      DateTime?
+  respondedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([tenantId, externalId])
+  @@index([tenantId, status, createdAt])
+  @@index([tenantId, saleId])
+  @@map("e_invoices")
 }

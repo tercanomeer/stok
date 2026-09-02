@@ -109,3 +109,5 @@ Git
 
 Portlar: web `3000`, api `3001`, postgres `5432`, redis `6379`, minio `9000` (konsol `9001`),
 Prisma Studio `5555`, POS dev sunucusu `5173`.
+
+Prisma 7 notları (Faz 1'de doğrulandı): Studio varsayılanda rastgele port seçiyor, `--port 5555` ile sabitlendi. `migrate reset` seed'i kendiliğinden çalıştırmıyor, `reset` script'inde `prisma db seed` açıkça zincirlendi.

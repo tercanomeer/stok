@@ -15,6 +15,8 @@ export default defineConfig({
   },
   migrations: {
     path: path.join('prisma', 'migrations'),
-    seed: 'tsx prisma/seed.ts',
+    // Turbo üzerinden: seed @stokk/types'ın derlenmiş halini import ediyor,
+    // doğrudan `tsx prisma/seed.ts` taze klonda bayat/eksik dist ile kırılır.
+    seed: 'pnpm turbo run seed --filter @stokk/db',
   },
 });

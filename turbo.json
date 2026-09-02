@@ -71,6 +71,27 @@
     "@stokk/db#test": {
       "dependsOn": ["@stokk/db#generate", "^build"],
       "outputs": ["coverage/**"]
+    },
+    "@stokk/db#seed": {
+      "dependsOn": ["^build", "@stokk/db#generate"],
+      "cache": false
+    },
+    "@stokk/db#migrate": {
+      "dependsOn": ["@stokk/db#generate"],
+      "cache": false
+    },
+    "@stokk/db#reset": {
+      "dependsOn": ["^build", "@stokk/db#generate"],
+      "cache": false
+    },
+    "@stokk/db#studio": {
+      "dependsOn": ["@stokk/db#generate"],
+      "cache": false,
+      "persistent": true
+    },
+    "@stokk/db#validate": {
+      "dependsOn": [],
+      "cache": false
     }
   }
 }

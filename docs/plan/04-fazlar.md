@@ -75,18 +75,18 @@ CI PR'da yeşil yanmalı.
 
 ### Yapılacak işler
 
-- [ ] **Kimlik & yetki:** `Tenant`, `User`, `Role`, `Permission`, `RolePermission`, `UserRole`, `RefreshToken`, `AuditLog`
-- [ ] **Katalog & ürün:** `Category`, `Brand`, `Unit`, `Product`, `Barcode`, `ProductPriceHistory`
-- [ ] **Stok:** `StockMovement` (ledger), `StockCount`, `StockCountItem`
-- [ ] **Cari & alış:** `Contact`, `ContactTransaction`, `Purchase`, `PurchaseItem`
-- [ ] **Kasa & satış:** `Register` (kasa), `CashSession`, `CashMovement`, `Sale`, `SaleItem`, `SalePayment`, `SaleReturn`
-- [ ] **Finans & yasal:** `Expense`, `ExpenseCategory`, `Income`, `EInvoice`, `TenantSettings`
-- [ ] Her tabloda `tenantId` + `createdAt/updatedAt`; parasal alanlar `Decimal(12,2)`, miktar `Decimal(12,3)`
-- [ ] Kısıtlar: `(tenantId, barcode)` unique, `(tenantId, receiptNo)` unique, `(tenantId, clientSaleId)` unique
-- [ ] İndeksler: `(tenantId, createdAt)`, ürün arama için trigram, stok hareketinde `(tenantId, productId, createdAt)`
-- [ ] İlk migration üretimi (`db push` değil — migration dosyası commit edilir)
-- [ ] Seed: izin kataloğu, 3 sistem rolü (Patron/Yönetici/Kasiyer), birimler, KDV oranları, varsayılan kategoriler, varsayılan kasa
-- [ ] `@stokk/db` export'ları: PrismaClient, tipler, enum'lar
+- [x] **Kimlik & yetki:** `Tenant`, `User`, `Role`, `Permission`, `RolePermission`, `UserRole`, `RefreshToken`, `AuditLog`
+- [x] **Katalog & ürün:** `Category`, `Brand`, `Unit`, `Product`, `Barcode`, `ProductPriceHistory`
+- [x] **Stok:** `StockMovement` (ledger), `StockCount`, `StockCountItem`
+- [x] **Cari & alış:** `Contact`, `ContactTransaction`, `Purchase`, `PurchaseItem`
+- [x] **Kasa & satış:** `Register` (kasa), `CashSession`, `CashMovement`, `Sale`, `SaleItem`, `SalePayment`, `SaleReturn`
+- [x] **Finans & yasal:** `Expense`, `ExpenseCategory`, `Income`, `EInvoice`, `TenantSettings`
+- [x] Her tabloda `tenantId` + `createdAt/updatedAt`; parasal alanlar `Decimal(12,2)`, miktar `Decimal(12,3)`
+- [x] Kısıtlar: `(tenantId, barcode)` unique, `(tenantId, receiptNo)` unique, `(tenantId, clientSaleId)` unique
+- [x] İndeksler: `(tenantId, createdAt)`, ürün arama için trigram, stok hareketinde `(tenantId, productId, createdAt)`
+- [x] İlk migration üretimi (`db push` değil — migration dosyası commit edilir)
+- [x] Seed: izin kataloğu, 3 sistem rolü (Patron/Yönetici/Kasiyer), birimler, KDV oranları, varsayılan kategoriler, varsayılan kasa
+- [x] `@stokk/db` export'ları: PrismaClient, tipler, enum'lar
 
 ### Kullanılacak ajanlar
 
