@@ -579,10 +579,12 @@ model Contact {
   @@map("contacts")
 }
 
+/// Cari bakiye konvansiyonu: balance > 0 = cari bize borçlu (alacak),
+/// balance < 0 = biz cariye borçluyuz (borç). Her işlem işaretli:
 enum ContactTransactionType {
-  /// Borç: cariye mal/hizmet verildi (veresiye satış, alış faturası bize borç).
+  /// balance += amount. Veresiye satış (müşteri bize borçlanır) veya tedarikçiye ödeme.
   DEBIT
-  /// Alacak: tahsilat veya ödeme.
+  /// balance -= amount. Müşteri tahsilatı veya tedarikçiden alış (biz borçlanırız).
   CREDIT
 }
 

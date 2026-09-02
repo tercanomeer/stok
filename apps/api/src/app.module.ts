@@ -13,8 +13,10 @@ import { ConfigModule, ENV } from './config/config.module.js';
 import { AuditModule } from './modules/audit/audit.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { CatalogModule } from './modules/catalog/catalog.module.js';
+import { ContactsModule } from './modules/contacts/contacts.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { ProductsModule } from './modules/products/products.module.js';
+import { PurchasesModule } from './modules/purchases/purchases.module.js';
 import { RolesModule } from './modules/roles/roles.module.js';
 import { StockModule } from './modules/stock/stock.module.js';
 import { UsersModule } from './modules/users/users.module.js';
@@ -54,6 +56,8 @@ import { StorageModule } from './storage/storage.module.js';
     CatalogModule,
     ProductsModule,
     StockModule,
+    ContactsModule,
+    PurchasesModule,
     HealthModule,
   ],
   providers: [

@@ -221,13 +221,13 @@ pnpm test --filter @stokk/api
 
 ### Yapılacak işler
 
-- [ ] `Contact` CRUD: müşteri / tedarikçi / ikisi, vergi bilgileri, kredi limiti, risk durumu
-- [ ] Cari hareket defteri: borç / alacak kayıtları, çalışan bakiye
-- [ ] Tahsilat ve ödeme kaydı (nakit/kart/havale), kasa hareketine bağlanır
-- [ ] Ekstre: tarih aralığı, açılış-kapanış bakiyesi, PDF/Excel export
-- [ ] Borç yaşlandırma (0-30, 31-60, 61-90, 90+)
-- [ ] Alış faturası: tedarikçi, kalemler, iskonto, KDV → **tek transaction'da** stok girişi + ağırlıklı ortalama maliyet güncellemesi + tedarikçiye borç kaydı
-- [ ] Alış faturası iptali: tüm etkileri geri alır
+- [x] `Contact` CRUD: müşteri / tedarikçi / ikisi, vergi bilgileri, kredi limiti, risk durumu
+- [x] Cari hareket defteri: borç / alacak kayıtları, çalışan bakiye
+- [x] Tahsilat ve ödeme kaydı (nakit/kart/havale) — kasa hareketine bağlama Faz 6
+- [x] Ekstre: tarih aralığı, açılış-kapanış bakiyesi, Excel export (PDF web print'e bırakıldı)
+- [x] Borç yaşlandırma (0-30, 31-60, 61-90, 90+)
+- [x] Alış faturası: tedarikçi, kalemler, iskonto, KDV → **tek transaction'da** stok girişi + ağırlıklı ortalama maliyet güncellemesi + tedarikçiye borç kaydı
+- [x] Alış faturası iptali: tüm etkileri geri alır
 
 ### Kullanılacak ajanlar
 
