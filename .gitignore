@@ -1,0 +1,51 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# env & secrets
+.env
+.env.*
+!.env.example
+
+# build output
+dist/
+build/
+out/
+.next/
+.turbo/
+*.tsbuildinfo
+
+# electron
+release/
+apps/pos/dist-electron/
+
+# prisma / local db
+packages/db/src/generated/
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+*-wal
+*-shm
+
+# test & coverage
+coverage/
+playwright-report/
+test-results/
+blob-report/
+.playwright/
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# editor & os
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# claude
+.claude/settings.local.json
