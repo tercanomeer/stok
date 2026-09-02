@@ -29,7 +29,11 @@ const envSchema = z.object({
         .min(1),
     ),
 
+  /// Migration, seed ve Studio bağlantısı — tablo sahibi rol, RLS'i baypas eder.
   DATABASE_URL: z.string().min(1),
+  /// Uygulamanın runtime bağlantısı — stokk_app rolü, RLS politikalarına tabidir.
+  /// İkisinin aynı olması izolasyonu sessizce devre dışı bırakır, o yüzden reddediliyor.
+  APP_DATABASE_URL: z.string().min(1),
   REDIS_URL: z.string().min(1),
 
   JWT_SECRET: z.string().min(32),
@@ -57,10 +61,22 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
 });
 
+const envSchemaWithRules = envSchema
+  .refine((env) => env.APP_DATABASE_URL !== env.DATABASE_URL, {
+    path: ['APP_DATABASE_URL'],
+    message:
+      'APP_DATABASE_URL, DATABASE_URL ile aynı olamaz — uygulama tablo sahibi rolle bağlanırsa row-level security baypas edilir.',
+  })
+  // Production'da MAIL_PROVIDER=log şifre sıfırlama token'ını düz metin log'a yazar.
+  .refine((env) => !(env.NODE_ENV === 'production' && env.MAIL_PROVIDER === 'log'), {
+    path: ['MAIL_PROVIDER'],
+    message: "Production'da MAIL_PROVIDER 'log' olamaz — sıfırlama token'ları log'a sızar.",
+  });
+
 export type Env = z.infer<typeof envSchema>;
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
-  const result = envSchema.safeParse(source);
+  const result = envSchemaWithRules.safeParse(source);
 
   if (!result.success) {
     const issues = result.error.issues

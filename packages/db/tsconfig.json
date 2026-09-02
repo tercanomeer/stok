@@ -4,6 +4,13 @@
   "compilerOptions": {
     "noEmit": true
   },
-  "include": ["src/**/*.ts", "prisma/**/*.ts", "prisma.config.ts", "*.config.ts", "*.config.mts"],
+  "include": [
+    "src/**/*.ts",
+    "prisma/**/*.ts",
+    "scripts/**/*.ts",
+    "prisma.config.ts",
+    "*.config.ts",
+    "*.config.mts"
+  ],
   "exclude": ["dist", "node_modules"]
 }

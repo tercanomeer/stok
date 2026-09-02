@@ -12,6 +12,11 @@ export default defineConfig({
     environment: 'node',
     globals: false,
     include: ['src/**/*.spec.ts', 'test/**/*.spec.ts'],
-    setupFiles: ['reflect-metadata'],
+    setupFiles: ['reflect-metadata', './test/setup.ts'],
+    // E2E testleri gerçek Postgres/Redis'e bağlanıyor; varsayılan 5 sn yetmiyor.
+    testTimeout: 30_000,
+    hookTimeout: 60_000,
+    // Aynı tenant verisine paralel dokunmasınlar.
+    fileParallelism: false,
   },
 });

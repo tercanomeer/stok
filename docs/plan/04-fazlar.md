@@ -114,17 +114,17 @@ pnpm db:studio         # tablolar ve seed verisi görünür
 
 ### Yapılacak işler
 
-- [ ] Config modülü: Zod ile env doğrulama, tipli erişim
-- [ ] Global altyapı: `TransformResponseInterceptor`, `HttpExceptionFilter`, `ZodValidationPipe`, `DomainError` sınıfları
-- [ ] `PrismaService` + **tenant middleware** (tenant'a bağlı modellerde otomatik `tenantId` filtresi)
-- [ ] `RedisService`: refresh token blacklist, rate limit sayaçları, pub/sub
-- [ ] Auth: `register` (tenant + ilk Patron), `login`, `refresh` (rotasyonlu), `logout`, `forgot-password`, `reset-password`, `me`
-- [ ] Opsiyonel 2FA (TOTP) altyapısı
-- [ ] Yetki: izin sabitleri `@stokk/types`'ta, `@Permissions()` decorator + `PermissionsGuard`
-- [ ] `users` ve `roles` modülleri: kullanıcı CRUD, rol atama, özel rol oluşturma
-- [ ] `audit` modülü: kritik işlemlerde kim/ne/ne zaman kaydı
-- [ ] Rate limit (auth 5/dk/IP, genel 100/dk), helmet, CORS whitelist
-- [ ] Swagger `/docs` (yalnız development)
+- [x] Config modülü: Zod ile env doğrulama, tipli erişim
+- [x] Global altyapı: `TransformResponseInterceptor`, `HttpExceptionFilter`, `ZodValidationPipe`, `DomainError` sınıfları
+- [x] `PrismaService` + **tenant middleware** (tenant'a bağlı modellerde otomatik `tenantId` filtresi)
+- [x] `RedisService`: refresh token blacklist, rate limit sayaçları, pub/sub
+- [x] Auth: `register` (tenant + ilk Patron), `login`, `refresh` (rotasyonlu), `logout`, `forgot-password`, `reset-password`, `me`
+- [~] Opsiyonel 2FA (TOTP) altyapısı — `totpSecret` alanı ve login kontrolü hazır; kayıt/etkinleştirme akışı Faz 11
+- [x] Yetki: izin sabitleri `@stokk/types`'ta, `@Permissions()` decorator + `PermissionsGuard`
+- [x] `users` ve `roles` modülleri: kullanıcı CRUD, rol atama, özel rol oluşturma
+- [x] `audit` modülü: kritik işlemlerde kim/ne/ne zaman kaydı
+- [x] Rate limit (auth 5/dk/IP, genel 100/dk), helmet, CORS whitelist
+- [x] Swagger `/docs` (yalnız development)
 
 ### Kullanılacak ajanlar
 

@@ -6,3 +6,4 @@
  */
 export * from './generated/prisma/client';
 export { createPrismaClient } from './client';
+export * from './tenant-scoped';

@@ -135,7 +135,10 @@ model User {
   id           String     @id @default(cuid())
   tenantId     String
   tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  email        String
+  /// Platform genelinde benzersiz: giriş ekranında tenant seçici yok, kullanıcı
+  /// yalnız e-posta + şifre ile giriyor. Aynı kişi iki işletmede aynı e-postayla
+  /// hesap açamaz — hedef kitle (1-5 kullanıcılı esnaf) için kabul edilebilir kısıt.
+  email        String     @unique
   passwordHash String
   fullName     String
   phone        String?
@@ -161,7 +164,6 @@ model User {
   expenses         Expense[]
   incomes          Income[]
 
-  @@unique([tenantId, email])
   @@index([tenantId, createdAt])
   @@index([tenantId, status])
   @@map("users")

@@ -15,17 +15,18 @@
     "dist"
   ],
   "scripts": {
-    "generate": "prisma generate",
     "build": "prisma generate && tsc -p tsconfig.build.json",
-    "typecheck": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist .turbo src/generated *.tsbuildinfo",
+    "generate": "prisma generate",
     "lint": "eslint .",
-    "test": "vitest run",
     "migrate": "prisma migrate dev",
-    "reset": "prisma migrate reset --force && prisma db seed",
+    "reset": "prisma migrate reset --force && tsx scripts/setup-app-role.ts && prisma db seed",
     "seed": "tsx prisma/seed.ts",
+    "setup-app-role": "tsx scripts/setup-app-role.ts",
     "studio": "prisma studio --port 5555 --browser none",
-    "validate": "prisma validate",
-    "clean": "rm -rf dist .turbo src/generated *.tsbuildinfo"
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json",
+    "validate": "prisma validate"
   },
   "dependencies": {
     "@prisma/adapter-pg": "catalog:",

@@ -8,6 +8,7 @@ const validEnv = {
   API_URL: 'http://localhost:3001',
   CORS_ORIGINS: 'http://localhost:3000,http://localhost:5173',
   DATABASE_URL: 'postgresql://stokk:stokk@localhost:5432/stokk',
+  APP_DATABASE_URL: 'postgresql://stokk_app:cok-gizli-parola@localhost:5432/stokk',
   REDIS_URL: 'redis://localhost:6379',
   JWT_SECRET: 'a'.repeat(48),
   JWT_REFRESH_SECRET: 'b'.repeat(48),
@@ -39,6 +40,13 @@ describe('loadEnv', () => {
   it('path içeren CORS origin ile açılmaz', () => {
     expect(() => loadEnv({ ...validEnv, CORS_ORIGINS: 'http://localhost:3000/api' })).toThrow(
       /CORS_ORIGINS/,
+    );
+  });
+
+  it('APP_DATABASE_URL, DATABASE_URL ile aynıysa açılmaz', () => {
+    // Uygulama tablo sahibi rolle bağlanırsa row-level security tamamen baypas edilir.
+    expect(() => loadEnv({ ...validEnv, APP_DATABASE_URL: validEnv.DATABASE_URL })).toThrow(
+      /APP_DATABASE_URL/,
     );
   });
 

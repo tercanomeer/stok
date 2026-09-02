@@ -26,7 +26,8 @@
     "db:studio": "turbo run studio --filter @stokk/db",
     "db:validate": "turbo run validate --filter @stokk/db",
     "prepare": "husky",
-    "test:e2e:install": "playwright install --with-deps chromium"
+    "test:e2e:install": "playwright install --with-deps chromium",
+    "db:setup-app-role": "turbo run setup-app-role --filter @stokk/db"
   },
   "devDependencies": {
     "@playwright/test": "catalog:",

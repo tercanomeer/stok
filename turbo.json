@@ -92,6 +92,10 @@
     "@stokk/db#validate": {
       "dependsOn": [],
       "cache": false
+    },
+    "@stokk/db#setup-app-role": {
+      "dependsOn": ["^build", "@stokk/db#generate"],
+      "cache": false
     }
   }
 }

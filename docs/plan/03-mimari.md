@@ -115,7 +115,7 @@ Row-level izolasyon: her tabloda `tenantId`.
 Üç katmanlı savunma — tek katmana güvenilmez:
 
 1. **Token** — `tenantId` JWT payload'ında; istemciden gelen `tenantId` asla kabul edilmez.
-2. **Prisma middleware** — tenant'a bağlı modellerde her `find/update/delete` sorgusuna `tenantId` filtresi otomatik enjekte edilir.
+2. **PostgreSQL RLS + Prisma extension** — Prisma 7'de `$use` middleware'i kaldırıldı. İki katman: (a) her tenant tablosunda row-level security politikası (`app.tenant_id` oturum ayarını okur, `$queryRaw` dahil HER sorguyu kapsar), (b) Prisma `$extends` query extension'ı model sorgularına `tenantId` enjekte eder (erken hata + okunabilirlik). Uygulama RLS'e tabi `stokk_app` rolüyle bağlanır; sahip rolü yalnız migration/seed/Studio.
 3. **Test** — her modül için "başka tenant'ın kaydına erişim 404 döner" testi zorunlu.
 
 ## Offline & senkronizasyon
