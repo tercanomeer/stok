@@ -31,20 +31,8 @@ export interface NavItem {
  */
 export const NAV_ITEMS: readonly NavItem[] = [
   { label: 'Panel', href: '/', icon: LayoutDashboard },
-  {
-    label: 'Ürünler',
-    href: '/products',
-    icon: Package,
-    permission: PERMISSIONS.PRODUCT_VIEW,
-    soon: true,
-  },
-  {
-    label: 'Stok',
-    href: '/stock',
-    icon: Warehouse,
-    permission: PERMISSIONS.STOCK_VIEW,
-    soon: true,
-  },
+  { label: 'Ürünler', href: '/products', icon: Package, permission: PERMISSIONS.PRODUCT_VIEW },
+  { label: 'Stok', href: '/stock', icon: Warehouse, permission: PERMISSIONS.STOCK_VIEW },
   {
     label: 'Satışlar',
     href: '/sales',

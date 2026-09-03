@@ -19,6 +19,7 @@
     "@stokk/ui": "workspace:*",
     "@tanstack/react-query": "catalog:",
     "axios": "catalog:",
+    "exceljs": "catalog:",
     "lucide-react": "catalog:",
     "next": "catalog:",
     "next-themes": "catalog:",

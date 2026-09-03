@@ -54,3 +54,9 @@ Thumbs.db
 
 # claude
 .claude/settings.local.json
+
+# next dev tarafından her çalıştırmada yeniden üretilen ajan yönergeleri.
+# Proje talimatı tek kaynakta (kök CLAUDE.md) tutuluyor; bu dosyalar yerelde
+# oluşur, depoya girmez.
+apps/web/AGENTS.md
+apps/web/CLAUDE.md

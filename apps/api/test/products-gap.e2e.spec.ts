@@ -467,3 +467,54 @@ describe('Türkçe sıralama sayfalama', () => {
     expect(nextThree.some((n) => firstThree.includes(n))).toBe(false);
   });
 });
+
+describe('kritik stok filtresi', () => {
+  it("stock=low, /stock/low ile AYNI ürünleri döner (seviyesi tanımsız ürün 'kritik' sayılmaz)", async () => {
+    const tenant = await registerTenant('FAZ3-GAP Kritik');
+    const auth = authHeader(tenant.accessToken);
+    const unitId = await getUnitId(auth);
+
+    // 1) Kritik seviyesi tanımlı ve stoğu seviyenin altında → KRİTİK.
+    await request(server)
+      .post('/products')
+      .set(authHeader(tenant.accessToken))
+      .send({ name: 'Kritik Ürün', unitId, salePrice: '10.00', vatRate: 20, criticalLevel: '5' })
+      .expect(201);
+
+    // 2) Kritik seviyesi tanımsız (0) ve stoğu 0 → kritik DEĞİL, yalnız "tükendi".
+    await request(server)
+      .post('/products')
+      .set(authHeader(tenant.accessToken))
+      .send({ name: 'Seviyesiz Ürün', unitId, salePrice: '10.00', vatRate: 20 })
+      .expect(201);
+
+    const list = await request(server)
+      .get('/products')
+      .query({ stock: 'low' })
+      .set(authHeader(tenant.accessToken))
+      .expect(200);
+    const names = (list.body as Envelope<{ items: { name: string }[] }>).data.items.map(
+      (i) => i.name,
+    );
+
+    const low = await request(server)
+      .get('/stock/low')
+      .set(authHeader(tenant.accessToken))
+      .expect(200);
+    const ledgerNames = (low.body as Envelope<{ name: string }[]>).data.map((r) => r.name);
+
+    expect(names).toEqual(['Kritik Ürün']);
+    expect([...names].sort()).toEqual([...ledgerNames].sort());
+
+    // "Tükendi" ayrı bir filtre: seviyesiz ürün orada görünür.
+    const out = await request(server)
+      .get('/products')
+      .query({ stock: 'out' })
+      .set(authHeader(tenant.accessToken))
+      .expect(200);
+    const outNames = (out.body as Envelope<{ items: { name: string }[] }>).data.items.map(
+      (i) => i.name,
+    );
+    expect(outNames).toContain('Seviyesiz Ürün');
+  });
+});

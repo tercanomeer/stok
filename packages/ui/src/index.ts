@@ -26,6 +26,8 @@ export { Input, type InputProps } from './components/input.js';
 export { Label, type LabelProps } from './components/label.js';
 export { Field, type FieldProps } from './components/field.js';
 export { Select, type SelectProps } from './components/select.js';
+export { Textarea, type TextareaProps } from './components/textarea.js';
+export { Checkbox, type CheckboxProps } from './components/checkbox.js';
 export { Card, CardHeader, CardTitle, CardDescription, CardBody } from './components/card.js';
 export { Badge, type BadgeProps } from './components/badge.js';
 export { Spinner, type SpinnerProps } from './components/spinner.js';

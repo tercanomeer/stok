@@ -74,11 +74,14 @@ export class ProductsService {
 
       // "low" (kritik seviye altı) iki sütun karşılaştırması; Prisma where ile ifade
       // edilemiyor, ham SQL id listesi ile daraltıyoruz.
+      // Kritik tanımı `/stock/low` ile AYNI olmalı (criticalLevel > 0): seviye
+      // tanımlanmamış üründe 0 <= 0 tutar ve stoğu biten her ürün "kritik" görünürdü —
+      // panel/uyarı bandı ile liste farklı sayı gösteriyordu.
       if (input.stock === 'low') {
         const lowIds = await tx.$queryRaw<{ id: string }[]>`
           SELECT id FROM products
           WHERE "deletedAt" IS NULL AND "trackStock" = true
-            AND "stockQuantity" <= "criticalLevel"`;
+            AND "criticalLevel" > 0 AND "stockQuantity" <= "criticalLevel"`;
         where.id = { in: lowIds.map((r) => r.id) };
       }
 

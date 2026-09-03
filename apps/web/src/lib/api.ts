@@ -97,6 +97,28 @@ export async function apiPostVoid(url: string, body?: unknown): Promise<void> {
   await api.post(url, body);
 }
 
+/** PATCH → zarf açılmış veri. */
+export async function apiPatch<T>(url: string, body?: unknown): Promise<T> {
+  const res = await api.patch<ApiSuccess<T>>(url, body);
+  return res.data.data;
+}
+
+/** DELETE → 204 döner, gövde yok. */
+export async function apiDelete(url: string): Promise<void> {
+  await api.delete(url);
+}
+
+/**
+ * Tek dosyalık multipart yükleme (ürün görseli, Excel import).
+ * Content-Type sınırını (boundary) tarayıcı yazar; elle set EDİLMEZ.
+ */
+export async function apiUpload<T>(url: string, file: File, field = 'file'): Promise<T> {
+  const form = new FormData();
+  form.append(field, file);
+  const res = await api.post<ApiSuccess<T>>(url, form);
+  return res.data.data;
+}
+
 /** Axios hatasından kullanıcıya gösterilecek Türkçe mesajı çıkarır. */
 export function apiErrorMessage(
   error: unknown,

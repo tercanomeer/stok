@@ -35,7 +35,7 @@ export function TR({ className, ...props }: HTMLAttributes<HTMLTableRowElement>)
 
 export interface CellProps extends ThHTMLAttributes<HTMLTableCellElement> {
   /** Sayısal sütun: sağa yasla + tabular rakam. */
-  numeric?: boolean;
+  numeric?: boolean | undefined;
 }
 
 export function TH({ className, numeric, ...props }: CellProps): ReactElement {
@@ -53,7 +53,7 @@ export function TH({ className, numeric, ...props }: CellProps): ReactElement {
 }
 
 export interface TdProps extends TdHTMLAttributes<HTMLTableCellElement> {
-  numeric?: boolean;
+  numeric?: boolean | undefined;
 }
 
 export function TD({ className, numeric, ...props }: TdProps): ReactElement {
