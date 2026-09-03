@@ -8,7 +8,7 @@ import {
   type UseQueryResult,
 } from '@tanstack/react-query';
 
-import { apiGet, apiPost, apiPostVoid } from '../lib/api';
+import { apiGet, apiPatch, apiPost, apiPostVoid } from '../lib/api';
 import type { Paginated, PurchaseDetail, PurchaseListItem } from '../lib/api-types';
 import { listParamsToApiQuery, type ListParams } from '../lib/list-params';
 
@@ -63,6 +63,24 @@ export function useCreatePurchase(): UseMutationResult<PurchaseDetail, Error, Pu
     mutationFn: (payload: PurchasePayload) => apiPost<PurchaseDetail>('/purchases', payload),
     onSuccess: () => {
       invalidatePurchaseEffects(queryClient);
+    },
+  });
+}
+
+export interface UpdatePurchaseArgs {
+  id: string;
+  /** YALNIZ belge bilgileri; kalemler değiştirilemez (sunucu da kabul etmez). */
+  body: { invoiceNo?: string | null; invoiceDate?: string; note?: string | null };
+}
+
+export function useUpdatePurchase(): UseMutationResult<PurchaseDetail, Error, UpdatePurchaseArgs> {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: UpdatePurchaseArgs) =>
+      apiPatch<PurchaseDetail>(`/purchases/${id}`, body),
+    onSuccess: () => {
+      // Yalnız belge bilgileri değişti; stok/maliyet/cari etkilenmez.
+      void queryClient.invalidateQueries({ queryKey: ['purchases'] });
     },
   });
 }

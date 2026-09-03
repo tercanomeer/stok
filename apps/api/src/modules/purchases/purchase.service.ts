@@ -13,7 +13,11 @@ import { PrismaService } from '../../prisma/prisma.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { ContactService } from '../contacts/contact.service.js';
 import { StockService } from '../stock/stock.service.js';
-import type { CreatePurchaseInput, ListPurchasesInput } from './dto/purchase.dto.js';
+import type {
+  CreatePurchaseInput,
+  ListPurchasesInput,
+  UpdatePurchaseInput,
+} from './dto/purchase.dto.js';
 
 interface ComputedItem {
   productId: string;
@@ -151,6 +155,50 @@ export class PurchaseService {
    * NOT: Araya satış girdiyse ağırlıklı ortalama TAM eski değere dönmez (Faz 1 notu:
    * "ters kayıt modeli, eski değere dönmez"). Hemen iptalde birebir döner.
    */
+  /**
+   * Belge bilgilerini günceller (fatura no / tarih / not). Kalemler değişmez —
+   * gerekçe `updatePurchaseSchema` yorumunda. İptal edilmiş fatura düzenlenemez.
+   */
+  async update(id: string, input: UpdatePurchaseInput) {
+    await this.prisma.withTenant(async (tx) => {
+      const existing = await tx.purchase.findFirst({
+        where: { id },
+        select: { id: true, status: true },
+      });
+      if (!existing) throw new NotFoundError('Alış faturası bulunamadı.');
+      if (existing.status === 'CANCELLED') {
+        throw new ConflictError('İptal edilmiş fatura düzenlenemez.');
+      }
+
+      try {
+        await tx.purchase.update({
+          where: { id },
+          data: {
+            ...(input.invoiceNo === undefined ? {} : { invoiceNo: input.invoiceNo }),
+            ...(input.invoiceDate === undefined
+              ? {}
+              : { invoiceDate: new Date(input.invoiceDate) }),
+            ...(input.note === undefined ? {} : { note: input.note }),
+          },
+        });
+      } catch (error) {
+        // (tenantId, contactId, invoiceNo) unique — aynı tedarikçiye aynı fatura no.
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+          throw new ConflictError('Bu tedarikçide aynı numaralı bir fatura zaten var.');
+        }
+        throw error;
+      }
+    });
+
+    await this.audit.record({
+      action: AuditAction.UPDATE,
+      entity: 'Purchase',
+      entityId: id,
+      changes: { fields: Object.keys(input) },
+    });
+    return this.findOne(id);
+  }
+
   async cancel(id: string, userId: string): Promise<void> {
     await this.prisma.withTenant(async (tx, tenantId) => {
       const purchase = await tx.purchase.findFirst({

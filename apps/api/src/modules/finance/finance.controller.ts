@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
 
 import { PERMISSIONS } from '@stokk/types';
 
@@ -13,11 +13,17 @@ import {
   createIncomeSchema,
   listExpensesSchema,
   listIncomesSchema,
+  updateExpenseCategorySchema,
+  updateExpenseSchema,
+  updateIncomeSchema,
   type CreateExpenseCategoryInput,
   type CreateExpenseInput,
   type CreateIncomeInput,
   type ListExpensesInput,
   type ListIncomesInput,
+  type UpdateExpenseCategoryInput,
+  type UpdateExpenseInput,
+  type UpdateIncomeInput,
 } from './dto/finance.dto.js';
 
 @Controller()
@@ -36,6 +42,15 @@ export class FinanceController {
     @Body(new ZodValidationPipe(createExpenseCategorySchema)) body: CreateExpenseCategoryInput,
   ) {
     return this.finance.createCategory(body);
+  }
+
+  @Patch('expense-categories/:id')
+  @Permissions(PERMISSIONS.EXPENSE_MANAGE)
+  updateCategory(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(updateExpenseCategorySchema)) body: UpdateExpenseCategoryInput,
+  ) {
+    return this.finance.updateCategory(id, body);
   }
 
   @Delete('expense-categories/:id')
@@ -60,6 +75,22 @@ export class FinanceController {
     return this.finance.createExpense(body, user.id);
   }
 
+  @Patch('expenses/:id')
+  @Permissions(PERMISSIONS.EXPENSE_MANAGE)
+  updateExpense(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(updateExpenseSchema)) body: UpdateExpenseInput,
+  ) {
+    return this.finance.updateExpense(id, body);
+  }
+
+  @Delete('expenses/:id')
+  @HttpCode(204)
+  @Permissions(PERMISSIONS.EXPENSE_MANAGE)
+  async removeExpense(@Param('id') id: string): Promise<void> {
+    await this.finance.removeExpense(id);
+  }
+
   @Get('incomes')
   @Permissions(PERMISSIONS.INCOME_VIEW)
   listIncomes(@Query(new ZodValidationPipe(listIncomesSchema)) query: ListIncomesInput) {
@@ -73,5 +104,21 @@ export class FinanceController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.finance.createIncome(body, user.id);
+  }
+
+  @Patch('incomes/:id')
+  @Permissions(PERMISSIONS.INCOME_MANAGE)
+  updateIncome(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(updateIncomeSchema)) body: UpdateIncomeInput,
+  ) {
+    return this.finance.updateIncome(id, body);
+  }
+
+  @Delete('incomes/:id')
+  @HttpCode(204)
+  @Permissions(PERMISSIONS.INCOME_MANAGE)
+  async removeIncome(@Param('id') id: string): Promise<void> {
+    await this.finance.removeIncome(id);
   }
 }

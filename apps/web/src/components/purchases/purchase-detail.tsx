@@ -1,6 +1,6 @@
 'use client';
 
-import { Ban, Printer } from 'lucide-react';
+import { Ban, PencilLine, Printer } from 'lucide-react';
 import Link from 'next/link';
 import { useState, type ReactElement } from 'react';
 
@@ -12,23 +12,28 @@ import {
   CardBody,
   CardHeader,
   CardTitle,
+  Dialog,
+  Field,
   formatDate,
   formatDateTime,
   formatMoney,
   formatPercent,
   formatQuantity,
+  Input,
   Spinner,
   Table,
   TBody,
   TD,
   TH,
   THead,
+  Textarea,
   TR,
   useToast,
 } from '@stokk/ui';
 
-import { useCancelPurchase, usePurchase } from '../../hooks/use-purchases';
+import { useCancelPurchase, usePurchase, useUpdatePurchase } from '../../hooks/use-purchases';
 import { apiErrorMessage } from '../../lib/api';
+import type { PurchaseDetail } from '../../lib/api-types';
 import { PURCHASE_STATUS_LABELS } from '../../lib/finance-labels';
 import { addMoney } from '../../lib/money-display';
 import { usePermission } from '../../lib/permissions';
@@ -43,9 +48,12 @@ import { FormBanner } from '../form-banner';
 export function PurchaseDetail({ purchaseId }: { purchaseId: string }): ReactElement {
   const purchase = usePurchase(purchaseId);
   const cancel = useCancelPurchase();
+  const update = useUpdatePurchase();
   const toast = useToast();
   const canCancel = usePermission(PERMISSIONS.PURCHASE_CANCEL);
+  const canManage = usePermission(PERMISSIONS.PURCHASE_MANAGE);
   const [confirming, setConfirming] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   if (purchase.isPending) {
     return (
@@ -83,6 +91,17 @@ export function PurchaseDetail({ purchaseId }: { purchaseId: string }): ReactEle
                 <Printer aria-hidden />
                 Yazdır / PDF
               </Button>
+              {canManage && !cancelled ? (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setEditing(true);
+                  }}
+                >
+                  <PencilLine aria-hidden />
+                  Belgeyi düzenle
+                </Button>
+              ) : null}
               {canCancel && !cancelled ? (
                 <Button
                   variant="danger"
@@ -196,6 +215,30 @@ export function PurchaseDetail({ purchaseId }: { purchaseId: string }): ReactEle
         </dl>
       </div>
 
+      <PurchaseHeaderDialog
+        open={editing}
+        purchase={data}
+        loading={update.isPending}
+        error={update.error}
+        onClose={() => {
+          setEditing(false);
+        }}
+        onSubmit={(body) => {
+          update.mutate(
+            { id: purchaseId, body },
+            {
+              onSuccess: () => {
+                toast.success('Fatura bilgileri güncellendi');
+                setEditing(false);
+              },
+              onError: (error) => {
+                toast.error('Güncellenemedi', apiErrorMessage(error));
+              },
+            },
+          );
+        }}
+      />
+
       <ConfirmDialog
         open={confirming}
         title="Faturayı iptal et"
@@ -219,5 +262,131 @@ export function PurchaseDetail({ purchaseId }: { purchaseId: string }): ReactEle
         }}
       />
     </div>
+  );
+}
+
+/** `<input type="date">` için yerel gün. */
+function toDateInput(iso: string): string {
+  const date = new Date(iso);
+  const offset = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 10);
+}
+
+/**
+ * Fatura BELGE bilgileri (no / tarih / not). Kalemler burada düzenlenmez:
+ * kaydedilirken stok, ortalama maliyet ve tedarikçi borcu işlendi; kalem
+ * değişikliği bu üçünü geri sarmayı gerektirir. Kalem hatası faturayı iptal edip
+ * yeniden keserek düzeltilir — sunucu da kalem güncellemesini kabul etmiyor.
+ */
+function PurchaseHeaderDialog({
+  open,
+  purchase,
+  loading,
+  error,
+  onClose,
+  onSubmit,
+}: {
+  open: boolean;
+  purchase: PurchaseDetail;
+  loading: boolean;
+  error: Error | null;
+  onClose: () => void;
+  onSubmit: (body: { invoiceNo: string | null; invoiceDate: string; note: string | null }) => void;
+}): ReactElement {
+  const [invoiceNo, setInvoiceNo] = useState('');
+  const [invoiceDate, setInvoiceDate] = useState('');
+  const [note, setNote] = useState('');
+
+  // Dialog açılışında forma faturanın güncel değerleri yüklenir (render sırasında,
+  // effect'te değil — effect'te setState zincirleme render üretir).
+  const [wasOpen, setWasOpen] = useState(false);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setInvoiceNo(purchase.invoiceNo ?? '');
+      setInvoiceDate(toDateInput(purchase.invoiceDate));
+      setNote(purchase.note ?? '');
+    }
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Fatura bilgilerini düzenle"
+      description={purchase.contact.name}
+      closeDisabled={loading}
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose} disabled={loading}>
+            Vazgeç
+          </Button>
+          <Button
+            loading={loading}
+            disabled={invoiceDate === ''}
+            onClick={() => {
+              onSubmit({
+                invoiceNo: invoiceNo.trim() ? invoiceNo.trim() : null,
+                invoiceDate: new Date(`${invoiceDate}T00:00:00`).toISOString(),
+                note: note.trim() ? note.trim() : null,
+              });
+            }}
+          >
+            Kaydet
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        {error ? <FormBanner message={apiErrorMessage(error)} /> : null}
+
+        <p className="text-ink-muted text-sm">
+          Yalnız belge bilgileri değişir.{' '}
+          <strong className="text-ink">Kalemler, miktarlar ve fiyatlar düzenlenemez</strong> —
+          bunlar kaydedilirken stok, maliyet ve tedarikçi borcu işlendi. Kalem hatası için faturayı
+          iptal edip yeniden kesin.
+        </p>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Fatura no">
+            {({ id }) => (
+              <Input
+                id={id}
+                autoFocus
+                className="tabular"
+                value={invoiceNo}
+                onChange={(e) => {
+                  setInvoiceNo(e.target.value);
+                }}
+              />
+            )}
+          </Field>
+          <Field label="Fatura tarihi" required>
+            {({ id }) => (
+              <Input
+                id={id}
+                type="date"
+                value={invoiceDate}
+                onChange={(e) => {
+                  setInvoiceDate(e.target.value);
+                }}
+              />
+            )}
+          </Field>
+          <Field label="Not" className="sm:col-span-2">
+            {({ id }) => (
+              <Textarea
+                id={id}
+                rows={2}
+                value={note}
+                onChange={(e) => {
+                  setNote(e.target.value);
+                }}
+              />
+            )}
+          </Field>
+        </div>
+      </div>
+    </Dialog>
   );
 }

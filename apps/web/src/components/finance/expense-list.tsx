@@ -1,6 +1,6 @@
 'use client';
 
-import { Plus, Receipt } from 'lucide-react';
+import { PencilLine, Plus, Receipt, Trash2 } from 'lucide-react';
 import { useMemo, useState, type ReactElement } from 'react';
 
 import { PERMISSIONS } from '@stokk/types';
@@ -17,19 +17,42 @@ import {
 
 import { EntryDialog } from './entry-dialog';
 import { FinanceTabs } from './finance-tabs';
-import { useCreateExpense, useExpenseCategories, useExpenses } from '../../hooks/use-finance';
+import {
+  useCreateExpense,
+  useDeleteExpense,
+  useExpenseCategories,
+  useExpenses,
+  useUpdateExpense,
+} from '../../hooks/use-finance';
 import { useListParams } from '../../hooks/use-list-params';
 import { usePageClamp } from '../../hooks/use-page-clamp';
 import { apiErrorMessage } from '../../lib/api';
 import type { Expense } from '../../lib/api-types';
 import { PAYMENT_METHOD_LABELS } from '../../lib/finance-labels';
+import type { FinanceEntryValues } from '../../lib/finance-schemas';
+import { usePermission } from '../../lib/permissions';
 import { dateToIsoEnd, dateToIsoStart, isoToDateInput } from '../../lib/stock-labels';
 import { Can } from '../can';
+import { ConfirmDialog } from '../common/confirm-dialog';
 import { DataTable, type Column } from '../common/data-table';
 import { PageHeader } from '../common/page-header';
 import { PaginationBar } from '../common/pagination-bar';
 
 const LIST_CONFIG = { filterKeys: ['categoryId', 'from', 'to'] as const };
+
+/** Kayıttan form değerlerine — tarih `<input type="date">` biçimine indirilir. */
+function toEntryValues(expense: Expense): FinanceEntryValues {
+  const date = new Date(expense.expenseDate);
+  const offset = date.getTimezoneOffset() * 60_000;
+  return {
+    amount: expense.amount,
+    paymentMethod: expense.paymentMethod,
+    description: expense.description,
+    date: new Date(date.getTime() - offset).toISOString().slice(0, 10),
+    categoryId: expense.category?.id ?? '',
+    documentNo: expense.documentNo ?? '',
+  };
+}
 
 /** Gider listesi — kategori ve tarih aralığı filtreli. */
 export function ExpenseList(): ReactElement {
@@ -38,8 +61,13 @@ export function ExpenseList(): ReactElement {
   usePageClamp(expenses.data?.meta, setPage);
   const categories = useExpenseCategories();
   const createExpense = useCreateExpense();
+  const updateExpense = useUpdateExpense();
+  const deleteExpense = useDeleteExpense();
   const toast = useToast();
+  const canManage = usePermission(PERMISSIONS.EXPENSE_MANAGE);
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Expense | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Expense | null>(null);
 
   const columns = useMemo<Column<Expense>[]>(
     () => [
@@ -74,8 +102,41 @@ export function ExpenseList(): ReactElement {
           <span className="text-danger font-medium">{formatMoney(expense.amount)}</span>
         ),
       },
+      ...(canManage
+        ? [
+            {
+              key: 'actions',
+              header: 'İşlem',
+              className: 'w-24',
+              cell: (expense: Expense) => (
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    aria-label={`${expense.description} giderini düzenle`}
+                    onClick={() => {
+                      setEditing(expense);
+                    }}
+                    className="rounded-control text-ink-muted hover:bg-surface-sunken hover:text-ink inline-flex size-8 items-center justify-center"
+                  >
+                    <PencilLine className="size-4" aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`${expense.description} giderini sil`}
+                    onClick={() => {
+                      setPendingDelete(expense);
+                    }}
+                    className="rounded-control text-ink-muted hover:bg-danger-weak hover:text-danger inline-flex size-8 items-center justify-center"
+                  >
+                    <Trash2 className="size-4" aria-hidden />
+                  </button>
+                </div>
+              ),
+            } satisfies Column<Expense>,
+          ]
+        : []),
     ],
-    [],
+    [canManage],
   );
 
   const hasFilters = Object.values(params.filters).some(Boolean);
@@ -169,6 +230,67 @@ export function ExpenseList(): ReactElement {
       />
 
       <PaginationBar meta={expenses.data?.meta} onPageChange={setPage} onLimitChange={setLimit} />
+
+      <EntryDialog
+        kind="expense"
+        open={editing !== null}
+        initial={editing ? toEntryValues(editing) : null}
+        loading={updateExpense.isPending}
+        error={updateExpense.error}
+        onClose={() => {
+          setEditing(null);
+        }}
+        onSubmit={(values) => {
+          if (!editing) return;
+          updateExpense.mutate(
+            {
+              id: editing.id,
+              body: {
+                amount: values.amount,
+                paymentMethod: values.paymentMethod,
+                description: values.description,
+                expenseDate: new Date(`${values.date}T00:00:00`).toISOString(),
+                categoryId: values.categoryId ? values.categoryId : null,
+                documentNo: values.documentNo ? values.documentNo : null,
+              },
+            },
+            {
+              onSuccess: () => {
+                toast.success('Gider güncellendi', formatMoney(values.amount));
+                setEditing(null);
+              },
+              onError: (error) => {
+                toast.error('Gider güncellenemedi', apiErrorMessage(error));
+              },
+            },
+          );
+        }}
+      />
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Gideri sil"
+        description={`"${pendingDelete?.description ?? ''}" (${formatMoney(pendingDelete?.amount ?? '0')}) silinecek. Kayıt listeden düşer, mali geçmişte korunur.`}
+        confirmLabel="Sil"
+        destructive
+        loading={deleteExpense.isPending}
+        onConfirm={() => {
+          if (!pendingDelete) return;
+          const label = pendingDelete.description;
+          deleteExpense.mutate(pendingDelete.id, {
+            onSuccess: () => {
+              toast.success('Gider silindi', label);
+              setPendingDelete(null);
+            },
+            onError: (error) => {
+              toast.error('Gider silinemedi', apiErrorMessage(error));
+            },
+          });
+        }}
+        onClose={() => {
+          setPendingDelete(null);
+        }}
+      />
 
       <EntryDialog
         kind="expense"

@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { FolderTree, Plus, Trash2 } from 'lucide-react';
+import { FolderTree, PencilLine, Plus, Trash2 } from 'lucide-react';
 import { useState, type ReactElement } from 'react';
 import { useForm } from 'react-hook-form';
 
@@ -13,6 +13,7 @@ import {
   useCreateExpenseCategory,
   useDeleteExpenseCategory,
   useExpenseCategories,
+  useUpdateExpenseCategory,
 } from '../../hooks/use-finance';
 import { apiErrorMessage } from '../../lib/api';
 import type { ExpenseCategory } from '../../lib/api-types';
@@ -30,10 +31,14 @@ import { FormBanner } from '../form-banner';
 export function ExpenseCategories(): ReactElement {
   const categories = useExpenseCategories();
   const createCategory = useCreateExpenseCategory();
+  const updateCategory = useUpdateExpenseCategory();
   const deleteCategory = useDeleteExpenseCategory();
   const toast = useToast();
-  const [open, setOpen] = useState(false);
+  // `null` = yeni kategori, kayıt = düzenleme, `undefined` = kapalı.
+  const [editing, setEditing] = useState<ExpenseCategory | null | undefined>(undefined);
   const [pendingDelete, setPendingDelete] = useState<ExpenseCategory | null>(null);
+  const saving = editing ? updateCategory.isPending : createCategory.isPending;
+  const saveError = editing ? updateCategory.error : createCategory.error;
 
   const {
     register,
@@ -46,10 +51,22 @@ export function ExpenseCategories(): ReactElement {
   });
 
   const onSubmit = handleSubmit((values) => {
+    if (editing) {
+      updateCategory.mutate(
+        { id: editing.id, name: values.name },
+        {
+          onSuccess: () => {
+            toast.success('Kategori güncellendi', values.name);
+            setEditing(undefined);
+          },
+        },
+      );
+      return;
+    }
     createCategory.mutate(values, {
       onSuccess: () => {
         toast.success('Kategori eklendi', values.name);
-        setOpen(false);
+        setEditing(undefined);
       },
     });
   });
@@ -64,19 +81,33 @@ export function ExpenseCategories(): ReactElement {
     {
       key: 'actions',
       header: 'İşlem',
-      className: 'w-20 text-right',
+      className: 'w-24 text-right',
       cell: (row) => (
         <Can permission={PERMISSIONS.EXPENSE_MANAGE}>
-          <button
-            type="button"
-            aria-label={`${row.name} kategorisini sil`}
-            onClick={() => {
-              setPendingDelete(row);
-            }}
-            className="rounded-control text-ink-muted hover:bg-danger-weak hover:text-danger inline-flex size-8 items-center justify-center"
-          >
-            <Trash2 className="size-4" aria-hidden />
-          </button>
+          <div className="flex items-center justify-end gap-1">
+            <button
+              type="button"
+              aria-label={`${row.name} kategorisini düzenle`}
+              onClick={() => {
+                reset({ name: row.name });
+                updateCategory.reset();
+                setEditing(row);
+              }}
+              className="rounded-control text-ink-muted hover:bg-surface-sunken hover:text-ink inline-flex size-8 items-center justify-center"
+            >
+              <PencilLine className="size-4" aria-hidden />
+            </button>
+            <button
+              type="button"
+              aria-label={`${row.name} kategorisini sil`}
+              onClick={() => {
+                setPendingDelete(row);
+              }}
+              className="rounded-control text-ink-muted hover:bg-danger-weak hover:text-danger inline-flex size-8 items-center justify-center"
+            >
+              <Trash2 className="size-4" aria-hidden />
+            </button>
+          </div>
         </Can>
       ),
     },
@@ -93,7 +124,7 @@ export function ExpenseCategories(): ReactElement {
               onClick={() => {
                 reset({ name: '' });
                 createCategory.reset();
-                setOpen(true);
+                setEditing(null);
               }}
             >
               <Plus aria-hidden />
@@ -123,25 +154,25 @@ export function ExpenseCategories(): ReactElement {
       />
 
       <Dialog
-        open={open}
+        open={editing !== undefined}
         onClose={() => {
-          setOpen(false);
+          setEditing(undefined);
         }}
-        title="Yeni gider kategorisi"
-        closeDisabled={createCategory.isPending}
+        title={editing ? 'Kategoriyi düzenle' : 'Yeni gider kategorisi'}
+        closeDisabled={saving}
         footer={
           <>
             <Button
               variant="outline"
-              disabled={createCategory.isPending}
+              disabled={saving}
               onClick={() => {
-                setOpen(false);
+                setEditing(undefined);
               }}
             >
               Vazgeç
             </Button>
             <Button
-              loading={createCategory.isPending}
+              loading={saving}
               onClick={() => {
                 void onSubmit();
               }}
@@ -152,9 +183,7 @@ export function ExpenseCategories(): ReactElement {
         }
       >
         <div className="space-y-4">
-          {createCategory.isError ? (
-            <FormBanner message={apiErrorMessage(createCategory.error)} />
-          ) : null}
+          {saveError ? <FormBanner message={apiErrorMessage(saveError)} /> : null}
           <Field label="Kategori adı" required error={errors.name?.message}>
             {({ id, describedBy }) => (
               <Input

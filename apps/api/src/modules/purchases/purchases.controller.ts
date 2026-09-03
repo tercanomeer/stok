@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
 
 import { PERMISSIONS } from '@stokk/types';
 
@@ -10,8 +10,10 @@ import type { AuthenticatedUser } from '../auth/auth.service.js';
 import {
   createPurchaseSchema,
   listPurchasesSchema,
+  updatePurchaseSchema,
   type CreatePurchaseInput,
   type ListPurchasesInput,
+  type UpdatePurchaseInput,
 } from './dto/purchase.dto.js';
 
 @Controller('purchases')
@@ -37,6 +39,15 @@ export class PurchasesController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.purchases.create(body, user.id);
+  }
+
+  @Patch(':id')
+  @Permissions(PERMISSIONS.PURCHASE_MANAGE)
+  update(
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(updatePurchaseSchema)) body: UpdatePurchaseInput,
+  ) {
+    return this.purchases.update(id, body);
   }
 
   @Post(':id/cancel')

@@ -19,6 +19,8 @@ import { FormBanner } from '../form-banner';
 export interface EntryDialogProps {
   kind: 'expense' | 'income';
   open: boolean;
+  /** Verilirse DÜZENLEME: form bu değerlerle açılır. Yoksa yeni kayıt. */
+  initial?: FinanceEntryValues | null;
   onClose: () => void;
   loading: boolean;
   error: Error | null;
@@ -49,6 +51,7 @@ function emptyEntry(): FinanceEntryValues {
 export function EntryDialog({
   kind,
   open,
+  initial = null,
   onClose,
   loading,
   error,
@@ -69,9 +72,10 @@ export function EntryDialog({
   });
 
   useEffect(() => {
-    if (open) reset(emptyEntry());
+    if (open) reset(initial ?? emptyEntry());
+    // Yalnız dialog açılışında / farklı kayda geçişte sıfırlanır.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, initial]);
 
   const submit = handleSubmit(
     (values) => {
@@ -86,7 +90,15 @@ export function EntryDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title={isExpense ? 'Gider ekle' : 'Gelir ekle'}
+      title={
+        initial
+          ? isExpense
+            ? 'Gideri düzenle'
+            : 'Geliri düzenle'
+          : isExpense
+            ? 'Gider ekle'
+            : 'Gelir ekle'
+      }
       closeDisabled={loading}
       footer={
         <>

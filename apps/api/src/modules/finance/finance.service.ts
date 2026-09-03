@@ -17,6 +17,9 @@ import type {
   CreateIncomeInput,
   ListExpensesInput,
   ListIncomesInput,
+  UpdateExpenseCategoryInput,
+  UpdateExpenseInput,
+  UpdateIncomeInput,
 } from './dto/finance.dto.js';
 
 /**
@@ -61,6 +64,36 @@ export class FinanceService {
       action: AuditAction.CREATE,
       entity: 'ExpenseCategory',
       entityId: category.id,
+    });
+    return category;
+  }
+
+  async updateCategory(id: string, input: UpdateExpenseCategoryInput) {
+    const category = await this.prisma.withTenant(async (tx) => {
+      const existing = await tx.expenseCategory.findFirst({
+        where: { id, deletedAt: null },
+        select: { id: true },
+      });
+      if (!existing) throw new NotFoundError('Gider kategorisi bulunamadı.');
+      try {
+        return await tx.expenseCategory.update({
+          where: { id },
+          data: { name: input.name },
+          select: { id: true, name: true, createdAt: true },
+        });
+      } catch (error) {
+        // (tenantId, name) unique — aynı adla ikinci kategori açılamaz.
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+          throw new ConflictError('Bu adda bir gider kategorisi zaten var.');
+        }
+        throw error;
+      }
+    });
+    await this.audit.record({
+      action: AuditAction.UPDATE,
+      entity: 'ExpenseCategory',
+      entityId: id,
+      changes: { name: input.name },
     });
     return category;
   }
@@ -133,7 +166,7 @@ export class FinanceService {
 
   async listExpenses(input: ListExpensesInput) {
     return this.prisma.withTenant(async (tx) => {
-      const where: Prisma.ExpenseWhereInput = {};
+      const where: Prisma.ExpenseWhereInput = { deletedAt: null };
       if (input.categoryId) where.categoryId = input.categoryId;
       if (input.from || input.to) {
         where.expenseDate = {
@@ -200,7 +233,7 @@ export class FinanceService {
 
   async listIncomes(input: ListIncomesInput) {
     return this.prisma.withTenant(async (tx) => {
-      const where: Prisma.IncomeWhereInput = {};
+      const where: Prisma.IncomeWhereInput = { deletedAt: null };
       if (input.from || input.to) {
         where.incomeDate = {
           ...(input.from ? { gte: new Date(input.from) } : {}),
@@ -227,6 +260,135 @@ export class FinanceService {
       ]);
       return paginate(items, total, input);
     });
+  }
+
+  /**
+   * Vardiyaya bağlı mali kayıt DEĞİŞTİRİLEMEZ.
+   *
+   * Nakit gider/gelir kasa hareketi doğurur ve o hareket vardiya kapanış
+   * mutabakatına girer. Kaydı sonradan değiştirmek/silmek, hareketle kaydı
+   * ayrıştırır ve kapanmış vardiyanın farkını geçersiz kılar. (Kasa hareketi
+   * bugün gidere FK ile bağlı değil; POS vardiyaya bağlı gider üretmeye
+   * başladığında `CashMovement.expenseId` eklenip düzenlemeye izin verilebilir.)
+   */
+  private assertNotCashLinked(cashSessionId: string | null): void {
+    if (cashSessionId) {
+      throw new BusinessRuleError(
+        'CASH_LINKED_RECORD',
+        'Vardiyaya bağlı kayıt değiştirilemez veya silinemez — kasa mutabakatını bozar.',
+      );
+    }
+  }
+
+  async updateExpense(id: string, input: UpdateExpenseInput) {
+    const expense = await this.prisma.withTenant(async (tx) => {
+      const existing = await tx.expense.findFirst({
+        where: { id, deletedAt: null },
+        select: { id: true, cashSessionId: true },
+      });
+      if (!existing) throw new NotFoundError('Gider kaydı bulunamadı.');
+      this.assertNotCashLinked(existing.cashSessionId);
+
+      if (input.categoryId) {
+        const category = await tx.expenseCategory.findFirst({
+          where: { id: input.categoryId, deletedAt: null },
+          select: { id: true },
+        });
+        if (!category) throw new NotFoundError('Gider kategorisi bulunamadı.');
+      }
+
+      return tx.expense.update({
+        where: { id },
+        data: {
+          ...(input.amount === undefined ? {} : { amount: new Prisma.Decimal(input.amount) }),
+          ...(input.paymentMethod === undefined ? {} : { paymentMethod: input.paymentMethod }),
+          ...(input.description === undefined ? {} : { description: input.description }),
+          ...(input.expenseDate === undefined ? {} : { expenseDate: new Date(input.expenseDate) }),
+          ...(input.categoryId === undefined ? {} : { categoryId: input.categoryId }),
+          ...(input.documentNo === undefined ? {} : { documentNo: input.documentNo }),
+        },
+        select: {
+          id: true,
+          amount: true,
+          paymentMethod: true,
+          description: true,
+          expenseDate: true,
+          documentNo: true,
+          category: { select: { id: true, name: true } },
+        },
+      });
+    });
+    await this.audit.record({
+      action: AuditAction.UPDATE,
+      entity: 'Expense',
+      entityId: id,
+      changes: { fields: Object.keys(input) },
+    });
+    return expense;
+  }
+
+  /** Yumuşak silme — mali kayıt geçmişi korunur, listeden düşer. */
+  async removeExpense(id: string): Promise<void> {
+    await this.prisma.withTenant(async (tx) => {
+      const existing = await tx.expense.findFirst({
+        where: { id, deletedAt: null },
+        select: { id: true, cashSessionId: true },
+      });
+      if (!existing) throw new NotFoundError('Gider kaydı bulunamadı.');
+      this.assertNotCashLinked(existing.cashSessionId);
+      await tx.expense.update({ where: { id }, data: { deletedAt: new Date() } });
+    });
+    await this.audit.record({ action: AuditAction.DELETE, entity: 'Expense', entityId: id });
+  }
+
+  async updateIncome(id: string, input: UpdateIncomeInput) {
+    const income = await this.prisma.withTenant(async (tx) => {
+      const existing = await tx.income.findFirst({
+        where: { id, deletedAt: null },
+        select: { id: true, cashSessionId: true },
+      });
+      if (!existing) throw new NotFoundError('Gelir kaydı bulunamadı.');
+      this.assertNotCashLinked(existing.cashSessionId);
+
+      return tx.income.update({
+        where: { id },
+        data: {
+          ...(input.amount === undefined ? {} : { amount: new Prisma.Decimal(input.amount) }),
+          ...(input.paymentMethod === undefined ? {} : { paymentMethod: input.paymentMethod }),
+          ...(input.description === undefined ? {} : { description: input.description }),
+          ...(input.incomeDate === undefined ? {} : { incomeDate: new Date(input.incomeDate) }),
+          ...(input.documentNo === undefined ? {} : { documentNo: input.documentNo }),
+        },
+        select: {
+          id: true,
+          amount: true,
+          paymentMethod: true,
+          description: true,
+          incomeDate: true,
+          documentNo: true,
+        },
+      });
+    });
+    await this.audit.record({
+      action: AuditAction.UPDATE,
+      entity: 'Income',
+      entityId: id,
+      changes: { fields: Object.keys(input) },
+    });
+    return income;
+  }
+
+  async removeIncome(id: string): Promise<void> {
+    await this.prisma.withTenant(async (tx) => {
+      const existing = await tx.income.findFirst({
+        where: { id, deletedAt: null },
+        select: { id: true, cashSessionId: true },
+      });
+      if (!existing) throw new NotFoundError('Gelir kaydı bulunamadı.');
+      this.assertNotCashLinked(existing.cashSessionId);
+      await tx.income.update({ where: { id }, data: { deletedAt: new Date() } });
+    });
+    await this.audit.record({ action: AuditAction.DELETE, entity: 'Income', entityId: id });
   }
 
   private async requireOpenSession(tx: TenantTransaction, cashSessionId: string): Promise<void> {

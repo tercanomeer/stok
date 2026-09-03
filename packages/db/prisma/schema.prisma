@@ -1027,9 +1027,14 @@ model Expense {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  /// Silinen gider kaydı fiziksel olarak SİLİNMEZ: mali kayıt geçmişi korunur,
+  /// listeden düşer. Denetim kaydı ayrıca DELETE olarak yazılır.
+  deletedAt DateTime?
+
   @@index([tenantId, expenseDate])
   @@index([cashSessionId])
   @@index([tenantId, categoryId, expenseDate])
+  @@index([tenantId, deletedAt])
   @@map("expenses")
 }
 
@@ -1051,8 +1056,12 @@ model Income {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  /// Silinen gelir kaydı fiziksel olarak SİLİNMEZ (gider ile aynı gerekçe).
+  deletedAt DateTime?
+
   @@index([tenantId, incomeDate])
   @@index([cashSessionId])
+  @@index([tenantId, deletedAt])
   @@map("incomes")
 }
 

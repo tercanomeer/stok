@@ -35,10 +35,28 @@ export const createPurchaseSchema = z
   })
   .strict();
 
+/**
+ * Alış faturası güncelleme — YALNIZ belge bilgileri.
+ *
+ * Kalemler, miktarlar ve fiyatlar DEĞİŞTİRİLEMEZ: fatura kaydedilirken stok girişi,
+ * ağırlıklı ortalama maliyet ve tedarikçi borcu tek transaction'da işlendi. Kalemi
+ * sonradan değiştirmek bu üç etkiyi geri sarıp yeniden uygulamayı gerektirir ve
+ * ürün o arada satıldıysa maliyet geri dönülemez şekilde bozulur. Kalem hatası
+ * faturayı İPTAL edip yeniden keserek düzeltilir (iptal tüm etkileri geri alır).
+ */
+export const updatePurchaseSchema = z
+  .object({
+    invoiceNo: z.string().trim().max(60).nullable().optional(),
+    invoiceDate: z.iso.datetime().optional(),
+    note: z.string().max(500).nullable().optional(),
+  })
+  .strict();
+
 export const listPurchasesSchema = paginationSchema.extend({
   contactId: z.string().min(1).optional(),
   status: z.enum(['COMPLETED', 'CANCELLED']).optional(),
 });
 
 export type CreatePurchaseInput = z.infer<typeof createPurchaseSchema>;
+export type UpdatePurchaseInput = z.infer<typeof updatePurchaseSchema>;
 export type ListPurchasesInput = z.infer<typeof listPurchasesSchema>;
