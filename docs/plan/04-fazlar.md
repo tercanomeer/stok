@@ -368,16 +368,16 @@ pnpm test --filter @stokk/api
 
 ### Yapılacak işler
 
-- [ ] Ürün listesi: sunucu taraflı sayfalama, arama, kategori/marka/stok durumu filtreleri, sütun görünürlüğü
-- [ ] Ürün formu (yeni/düzenle): çoklu barkod, fiyat + KDV, kritik seviye, görsel yükleme, tartılı ürün
-- [ ] Toplu import sihirbazı: dosya → sütun eşleme → önizleme → sonuç raporu (hatalı satırlar indirilebilir)
-- [ ] Etiket / barkod basımı: seçim → sayfa düzeni → PDF önizleme
-- [ ] Toplu fiyat güncelleme: filtre → yüzde/tutar → önizleme → uygula
-- [ ] Kategori, marka, birim yönetim ekranları
-- [ ] Stok listesi + kritik stok uyarı bandı
-- [ ] Sayım ekranı: barkodla hızlı giriş, canlı fark tablosu, tamamla/iptal
-- [ ] Fire ve manuel düzeltme ekranları (sebep zorunlu)
-- [ ] Stok hareket geçmişi: ürün/tarih/tip filtreli
+- [x] Ürün listesi: sunucu taraflı sayfalama, arama, kategori/marka/stok durumu filtreleri, sütun görünürlüğü
+- [x] Ürün formu (yeni/düzenle): çoklu barkod, fiyat + KDV, kritik seviye, görsel yükleme, tartılı ürün
+- [x] Toplu import sihirbazı: dosya → sütun eşleme → önizleme → sonuç raporu (hatalı satırlar indirilebilir)
+- [x] Etiket / barkod basımı: seçim → sayfa düzeni → PDF önizleme
+- [x] Toplu fiyat güncelleme: filtre → yüzde/tutar → önizleme → uygula
+- [x] Kategori, marka, birim yönetim ekranları
+- [x] Stok listesi + kritik stok uyarı bandı
+- [x] Sayım ekranı: barkodla hızlı giriş, canlı fark tablosu, tamamla/iptal
+- [x] Fire ve manuel düzeltme ekranları (sebep zorunlu)
+- [x] Stok hareket geçmişi: ürün/tarih/tip filtreli
 
 ### Kullanılacak ajanlar
 
@@ -407,13 +407,13 @@ pnpm test --filter @stokk/api
 
 ### Yapılacak işler
 
-- [ ] Cari listesi: bakiye, risk durumu, borçlu/alacaklı filtresi
-- [ ] Cari detay: ekstre tablosu, bakiye kartı, tahsilat/ödeme formu, PDF/Excel export
-- [ ] Veresiye defteri görünümü: limit aşanlar, yaşlandırma tablosu
-- [ ] Alış faturası ekranı: tedarikçi seçimi, kalem girişi (barkodla), iskonto/KDV, stok etkisi önizlemesi
-- [ ] Alış faturası listesi + detay + iptal
-- [ ] Gelir / gider ekranları, gider kategorileri yönetimi
-- [ ] Kasa ve vardiya geçmişi: vardiya detayı, fark raporu
+- [x] Cari listesi: bakiye, risk durumu, borçlu/alacaklı filtresi
+- [x] Cari detay: ekstre tablosu, bakiye kartı, tahsilat/ödeme formu, PDF/Excel export
+- [x] Veresiye defteri görünümü: limit aşanlar, yaşlandırma tablosu
+- [x] Alış faturası ekranı: tedarikçi seçimi, kalem girişi (barkodla), iskonto/KDV, stok etkisi önizlemesi
+- [x] Alış faturası listesi + detay + iptal
+- [x] Gelir / gider ekranları, gider kategorileri yönetimi
+- [x] Kasa ve vardiya geçmişi: vardiya detayı, fark raporu
 
 ### Kullanılacak ajanlar
 
