@@ -1,6 +1,11 @@
 /*
- * @stokk/ui tasarım token'ları — Tailwind 4 (@theme).
- * Faz 0: yalnız iskelet. Renk paleti, tipografi ölçeği ve koyu tema Faz 8'de doldurulur.
+ * @stokk/ui tasarım token'ları — Tailwind 4.
+ *
+ * Tasarım dili (Faz 8): Stokk esnaf paneli — dükkânın kasası, stoğu ve defteri.
+ * Marka rengi çam/zümrüt yeşili (para/güven); yüzey serin-nötr kırık beyaz;
+ * uyarı kehribar (kritik stok). Sayılar tabular. Tek gövde ailesi: IBM Plex Sans
+ * (Türkçe ş/ğ/ı/İ tam desteği, tabular rakam). Ölçülü: gölge yalnız kabartılmış
+ * kartta, kenarlık hiyerarşiyi taşır, gradyan/allcaps yok.
  *
  * Tüketiciler (apps/web, apps/pos) kendi global CSS'lerinde şunu yazar:
  *   @import 'tailwindcss';
@@ -10,8 +15,141 @@
  * yazılmazsa ui component'lerinin class'ları production build'de sessizce purge edilir.
  */
 
-@theme {
+/* next-themes attribute="class" ile .dark sınıfı html'e biner. */
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* yüzeyler */
+  --surface: #fbfbfa; /* ana içerik zemini */
+  --surface-raised: #ffffff; /* kart, dropdown, dialog */
+  --surface-sunken: #f4f5f3; /* uygulama kabuğu / sidebar */
+
+  /* metin */
+  --ink: #14201b; /* birincil metin — hafif yeşil-serin siyah */
+  --ink-muted: #5b6560; /* ikincil, etiket, açıklama (5.8:1) */
+  --ink-subtle: #6c736e; /* placeholder, devre dışı — AA için ≥4.5:1 (a11y-tester) */
+
+  /* kenarlık */
+  --border: #e4e7e3;
+  --border-strong: #d2d7d2;
+
+  /* marka — çam/zümrüt yeşili */
+  --brand: #0f6b4f;
+  --brand-hover: #0b5a42;
+  --brand-ink: #ffffff; /* marka zemin üstü metin */
+  --brand-weak: #e7f1ec; /* seçili/aktif zemin tonu */
+  --brand-weak-ink: #0b5a42;
+
+  /* durum renkleri — ikon+etiketle birlikte, asla yalnız renk */
+  --warning: #8a5a12; /* kritik stok, koyu kehribar — warning-weak üstü 5.2:1 (a11y-tester) */
+  --warning-weak: #fbf0dc;
+  --danger: #b4271a;
+  --danger-weak: #fbe9e7;
+  --success: #1e8e5a;
+  --success-weak: #e6f4ec;
+
+  /* odak halkası — klavye gezinme (kasa ortamı) */
+  --focus: #0f6b4f;
+
+  /* yarıçap */
+  --radius-control: 0.5rem; /* buton, input */
+  --radius-card: 0.75rem; /* kart, stat tile */
+  --radius-panel: 1rem; /* büyük panel */
+
+  /* gölge — yalnız kabartılmış yüzeyde, tek yumuşak katman */
+  --shadow-raised: 0 1px 2px rgba(20, 32, 27, 0.06), 0 1px 3px rgba(20, 32, 27, 0.04);
+  --shadow-overlay: 0 8px 24px rgba(20, 32, 27, 0.12);
+
+  /* tipografi */
   --font-sans:
-    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+    var(--font-plex), 'IBM Plex Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+}
+
+.dark {
+  --surface: #0c1210;
+  --surface-raised: #121a16;
+  --surface-sunken: #0a0f0d;
+
+  --ink: #e7edea;
+  --ink-muted: #93a099;
+  --ink-subtle: #7b857e; /* koyu tema — surface üstü ≥4.5:1 (a11y-tester) */
+
+  --border: #1e2a24;
+  --border-strong: #2a382f;
+
+  --brand: #35c088;
+  --brand-hover: #46ce96;
+  --brand-ink: #06120c;
+  --brand-weak: #122a1f;
+  --brand-weak-ink: #7fe0b6;
+
+  --warning: #e0a52e;
+  --warning-weak: #2b220f;
+  --danger: #f0796b;
+  --danger-weak: #2c1512;
+  --success: #46ce96;
+  --success-weak: #122a1f;
+
+  --focus: #35c088;
+
+  --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+/* Token'ları Tailwind utility'lerine bağla (inline: runtime var, koyu tema class'la döner). */
+@theme inline {
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-sunken: var(--surface-sunken);
+
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-subtle: var(--ink-subtle);
+
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-weak: var(--brand-weak);
+  --color-brand-weak-ink: var(--brand-weak-ink);
+
+  --color-warning: var(--warning);
+  --color-warning-weak: var(--warning-weak);
+  --color-danger: var(--danger);
+  --color-danger-weak: var(--danger-weak);
+  --color-success: var(--success);
+  --color-success-weak: var(--success-weak);
+
+  --radius-control: var(--radius-control);
+  --radius-card: var(--radius-card);
+  --radius-panel: var(--radius-panel);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
+
+/* Temel: gövde yüzey + mürekkep, kenar rengi varsayılan. */
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  body {
+    background-color: var(--surface);
+    color: var(--ink);
+    font-family: var(--font-sans);
+  }
+  /* Para/miktar sütunları hizalı: tabular rakam. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+  /* Görünür odak halkası — klavye gezinme her yerde. */
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
 }

@@ -85,7 +85,15 @@ export default tseslint.config(
         'error',
         {
           includeTypes: true,
-          devDependencies: ['**/*.spec.ts', '**/*.test.ts', '**/*.config.*', '**/test/**'],
+          devDependencies: [
+            '**/*.spec.ts',
+            '**/*.spec.tsx',
+            '**/*.test.ts',
+            '**/*.test.tsx',
+            '**/*.config.*',
+            '**/*.setup.ts',
+            '**/test/**',
+          ],
         },
       ],
       // Paket sınırını relative yolla aşmak (../../packages/ui/src/index) hem
@@ -130,7 +138,13 @@ export default tseslint.config(
 
   // Config ve test dosyalarında default export ve devDependency serbest
   {
-    files: ['**/*.config.{ts,mts,js,mjs}', '**/*.spec.ts', '**/*.test.ts', '**/test/**'],
+    files: [
+      '**/*.config.{ts,mts,js,mjs}',
+      '**/*.spec.{ts,tsx}',
+      '**/*.test.{ts,tsx}',
+      '**/*.setup.ts',
+      '**/test/**',
+    ],
     rules: {
       'import-x/no-default-export': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',

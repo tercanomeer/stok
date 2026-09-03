@@ -329,17 +329,17 @@ pnpm test --filter @stokk/api
 
 ### Yapılacak işler
 
-- [ ] Next.js App Router kurulumu, route grupları: `(auth)` ve `(dashboard)`
-- [ ] Tailwind 4 + tasarım token'ları: renk, tipografi, spacing, radius; açık/koyu tema
-- [ ] shadcn/ui component'lerinin `@stokk/ui`'ye alınması (button, input, select, dialog, table, toast, form) — POS da bunları kullanacak
-- [ ] `@stokk/ui` formatlayıcıları: para (`tr-TR`, TRY), tarih (`date-fns` + tr), miktar
-- [ ] Layout: sidebar (izne göre filtrelenen menü), topbar (vardiya durumu, tema, kullanıcı), breadcrumb
-- [ ] Veri katmanı: TanStack Query + axios interceptor (401 → sessiz refresh → tekrar dene)
-- [ ] Auth store (Zustand), route guard, izin bazlı `<Can permission="...">` component'i
-- [ ] Form altyapısı: react-hook-form + zod resolver + ortak hata gösterimi
-- [ ] Ekranlar: giriş, kayıt (işletme + patron), şifremi unuttum, şifre sıfırlama
-- [ ] Dashboard: günün cirosu, kâr, satış adedi, kritik stok, son satışlar, saatlik grafik
-- [ ] Boş durum / yükleniyor / hata (error boundary) desenleri
+- [x] Next.js App Router kurulumu, route grupları: `(auth)` ve `(dashboard)`
+- [x] Tailwind 4 + tasarım token'ları: renk, tipografi, spacing, radius; açık/koyu tema
+- [x] shadcn/ui component'lerinin `@stokk/ui`'ye alınması (button, input, select, dialog, table, toast, form) — POS da bunları kullanacak
+- [x] `@stokk/ui` formatlayıcıları: para (`tr-TR`, TRY), tarih (`date-fns` + tr), miktar
+- [x] Layout: sidebar (izne göre filtrelenen menü), topbar (vardiya durumu, tema, kullanıcı), breadcrumb
+- [x] Veri katmanı: TanStack Query + axios interceptor (401 → sessiz refresh → tekrar dene)
+- [x] Auth store (Zustand), route guard, izin bazlı `<Can permission="...">` component'i
+- [x] Form altyapısı: react-hook-form + zod resolver + ortak hata gösterimi
+- [x] Ekranlar: giriş, kayıt (işletme + patron), şifremi unuttum, şifre sıfırlama
+- [x] Dashboard: günün cirosu, kâr, satış adedi, kritik stok, son satışlar, saatlik grafik
+- [x] Boş durum / yükleniyor / hata (error boundary) desenleri
 
 ### Kullanılacak ajanlar
 
