@@ -57,6 +57,17 @@ const envSchema = z.object({
   OKC_PROVIDER: z.enum(['mock']).default('mock'),
   PAYMENT_PROVIDER: z.enum(['mock']).default('mock'),
 
+  /**
+   * Tenant entegrasyon kimlik bilgilerinin (e-fatura, SMS) şifrelenmesinde kullanılan
+   * anahtar — 32 bayt, hex (64 karakter): `openssl rand -hex 32`.
+   * Development'ta verilmezse JWT_SECRET'tan HKDF ile türetilir; production'da ZORUNLU
+   * (aşağıdaki refine), çünkü JWT_SECRET rotasyonu kayıtlı kimlik bilgilerini okunamaz yapar.
+   */
+  SETTINGS_ENCRYPTION_KEY: z
+    .string()
+    .regex(/^[0-9a-fA-F]{64}$/, '32 baytlık hex anahtar olmalı (openssl rand -hex 32).')
+    .optional(),
+
   SENTRY_DSN: z.string().optional(),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
 });
@@ -71,6 +82,13 @@ const envSchemaWithRules = envSchema
   .refine((env) => !(env.NODE_ENV === 'production' && env.MAIL_PROVIDER === 'log'), {
     path: ['MAIL_PROVIDER'],
     message: "Production'da MAIL_PROVIDER 'log' olamaz — sıfırlama token'ları log'a sızar.",
+  })
+  // Türetilmiş anahtar JWT_SECRET'a bağlıdır; onu rotasyona sokmak kayıtlı e-fatura/SMS
+  // kimlik bilgilerini kalıcı olarak okunamaz yapar. Production'da ayrı anahtar şart.
+  .refine((env) => !(env.NODE_ENV === 'production' && !env.SETTINGS_ENCRYPTION_KEY), {
+    path: ['SETTINGS_ENCRYPTION_KEY'],
+    message:
+      "Production'da SETTINGS_ENCRYPTION_KEY zorunlu — JWT_SECRET'tan türetilen anahtar, token rotasyonunda kimlik bilgilerini okunamaz yapar.",
   });
 
 export type Env = z.infer<typeof envSchema>;

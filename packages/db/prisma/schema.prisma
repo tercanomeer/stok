@@ -122,6 +122,20 @@ model TenantSettings {
   receiptFooter           String?
   logoUrl                 String?
 
+  /// Yazıcı varsayılanları — POS ilk açılışta bunları önerir, cihazda değiştirilebilir.
+  receiptPrinterName      String?
+  /// Fiş genişliği (mm): 58 veya 80 termal kağıt.
+  receiptWidthMm          Int                 @default(80)
+  /// Satış sonrası fiş otomatik bassın mı.
+  autoPrintReceipt        Boolean             @default(true)
+
+  /// Entegrasyon kimlik bilgileri. Parola/anahtar alanları AES-256-GCM ile
+  /// ŞİFRELİ saklanır ve API'den ASLA düz metin dönmez — yalnız maskeli gösterilir.
+  eInvoiceUsername        String?
+  eInvoiceSecretEnc       String?
+  smsSenderTitle          String?
+  smsApiKeyEnc            String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

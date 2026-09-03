@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { hash as bcryptHash } from 'bcrypt';
 
 import { AuditAction } from '@stokk/db';
+import { PERMISSIONS } from '@stokk/types';
 
 import type { CreateUserInput, UpdateUserInput } from './dto/user.dto.js';
 import {
@@ -106,14 +107,38 @@ export class UsersService {
       if (!existing) throw new NotFoundError('Kullanıcı bulunamadı.');
 
       if (input.roleIds) {
-        if (id === getTenantContext()?.userId) {
-          throw new ForbiddenError('Kendi rollerinizi değiştiremezsiniz.');
-        }
-        await this.assertRolesAssignable(tx, input.roleIds);
-        await tx.userRole.deleteMany({ where: { userId: id } });
-        await tx.userRole.createMany({
-          data: input.roleIds.map((roleId) => ({ userId: id, roleId })),
+        const current = await tx.userRole.findMany({
+          where: { userId: id },
+          select: { roleId: true },
         });
+        const currentIds = new Set(current.map((entry) => entry.roleId));
+        const nextIds = new Set(input.roleIds);
+        const unchanged =
+          currentIds.size === nextIds.size &&
+          [...nextIds].every((roleId) => currentIds.has(roleId));
+
+        // Rol listesi DEĞİŞMEDİYSE dokunma. Ekran ad/telefon güncellerken de
+        // roleIds gönderiyor; koşulsuz reddetmek kullanıcının kendi adını bile
+        // değiştirememesine ve yanıltıcı "kendi rollerinizi değiştiremezsiniz"
+        // hatasına yol açıyordu.
+        if (!unchanged) {
+          if (id === getTenantContext()?.userId) {
+            throw new ForbiddenError('Kendi rollerinizi değiştiremezsiniz.');
+          }
+          await this.assertRolesAssignable(tx, input.roleIds);
+          await this.assertAdminAccessSurvives(tx, id, input.roleIds);
+          await tx.userRole.deleteMany({ where: { userId: id } });
+          await tx.userRole.createMany({
+            data: input.roleIds.map((roleId) => ({ userId: id, roleId })),
+          });
+        }
+      }
+
+      if (input.status === 'INACTIVE') {
+        if (id === getTenantContext()?.userId) {
+          throw new ForbiddenError('Kendi hesabınızı pasife alamazsınız.');
+        }
+        await this.assertAdminAccessSurvives(tx, id, []);
       }
 
       return tx.user.update({
@@ -150,6 +175,10 @@ export class UsersService {
         select: { id: true },
       });
       if (!existing) throw new NotFoundError('Kullanıcı bulunamadı.');
+      if (id === getTenantContext()?.userId) {
+        throw new ForbiddenError('Kendi hesabınızı pasife alamazsınız.');
+      }
+      await this.assertAdminAccessSurvives(tx, id, []);
 
       await tx.user.update({ where: { id }, data: { status: 'INACTIVE', deletedAt: new Date() } });
     });
@@ -165,6 +194,45 @@ export class UsersService {
    *  2. Rollerin verdiği hiçbir izin, çağıranın SAHİP OLMADIĞI bir izin değil. Yoksa
    *     `user.manage` iznine sahip biri PATRON rolünü atayıp tüm yetkilere yükselebilirdi.
    */
+  /**
+   * Kullanıcı pasife alınırken veya rolleri değişirken tenant'ta `role.manage`
+   * iznine sahip AKTİF kullanıcı kalıyor mu kontrol eder.
+   *
+   * Kalmıyorsa reddedilir: son yetkili hesabı kapatmak tenant'ı kalıcı olarak
+   * yönetilemez bırakır ve geri dönüş yalnız veritabanı müdahalesiyle olur.
+   * `nextRoleIds` boş verilirse kullanıcı tamamen yetkisini kaybediyor sayılır
+   * (pasife alma durumu).
+   */
+  private async assertAdminAccessSurvives(
+    tx: TenantTransaction,
+    userId: string,
+    nextRoleIds: string[],
+  ): Promise<void> {
+    const keepsAdmin =
+      nextRoleIds.length > 0 &&
+      (await tx.role.count({
+        where: {
+          id: { in: nextRoleIds },
+          permissions: { some: { permission: { code: PERMISSIONS.ROLE_MANAGE } } },
+        },
+      })) > 0;
+    if (keepsAdmin) return;
+
+    const otherAdmins = await tx.userRole.count({
+      where: {
+        userId: { not: userId },
+        user: { status: 'ACTIVE', deletedAt: null },
+        role: { permissions: { some: { permission: { code: PERMISSIONS.ROLE_MANAGE } } } },
+      },
+    });
+    if (otherAdmins === 0) {
+      throw new BusinessRuleError(
+        'LAST_ADMIN',
+        'Yönetim yetkisi olan son kullanıcı bu işlemle erişimini kaybeder. Önce başka bir kullanıcıya yönetim yetkisi verin.',
+      );
+    }
+  }
+
   private async assertRolesAssignable(tx: TenantTransaction, roleIds: string[]): Promise<void> {
     const roles = await tx.role.findMany({
       where: { id: { in: roleIds } },

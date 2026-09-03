@@ -15,6 +15,7 @@ import {
   type ResetPasswordInput,
 } from './dto/auth.dto.js';
 import { CurrentUser } from '../../common/decorators/current-user.decorator.js';
+import { NoPermissionRequired } from '../../common/decorators/permissions.decorator.js';
 import { Public } from '../../common/decorators/public.decorator.js';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe.js';
 
@@ -75,6 +76,9 @@ export class AuthController {
     await this.auth.resetPassword(body);
   }
 
+  // İzin gerektirmez: kullanıcı yalnız KENDİ profilini okur, kimlik imzalı
+  // token'dan gelir. Guard varsayılanı kapalı olduğu için açıkça işaretlenir.
+  @NoPermissionRequired()
   @Throttle({ default: { limit: 60, ttl: seconds(60) } })
   @Get('me')
   async me(@CurrentUser() user: AuthenticatedUser) {

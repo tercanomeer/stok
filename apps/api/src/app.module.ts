@@ -25,6 +25,7 @@ import { RegistersModule } from './modules/registers/registers.module.js';
 import { ReportsModule } from './modules/reports/reports.module.js';
 import { RolesModule } from './modules/roles/roles.module.js';
 import { SalesModule } from './modules/sales/sales.module.js';
+import { SettingsModule } from './modules/settings/settings.module.js';
 import { StockModule } from './modules/stock/stock.module.js';
 import { SyncModule } from './modules/sync/sync.module.js';
 import { UsersModule } from './modules/users/users.module.js';
@@ -74,6 +75,7 @@ import { StorageModule } from './storage/storage.module.js';
     ReportsModule,
     ExportModule,
     EInvoiceModule,
+    SettingsModule,
     HealthModule,
   ],
   providers: [

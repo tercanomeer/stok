@@ -418,3 +418,308 @@ export interface CashSessionDetail {
   note: string | null;
   movements: CashMovement[];
 }
+
+// --- Satış ---
+
+export interface SaleListRow extends SaleListItem {
+  user: { id: string; fullName: string };
+  payments: { method: PaymentMethod }[];
+}
+
+export interface SaleItemDetail {
+  id: string;
+  productId: string;
+  /** Satış anında dondurulmuş ad — ürün sonradan yeniden adlandırılsa fiş değişmez. */
+  productName: string;
+  quantity: string;
+  /** Birim satış fiyatı — KDV DAHİL. */
+  unitPrice: string;
+  discountRate: string;
+  vatRate: number;
+  netAmount: string;
+  vatAmount: string;
+  lineTotal: string;
+  /** Bu kalemden şimdiye kadar iade edilen miktarlar. */
+  returnItems: { quantity: string }[];
+}
+
+export interface VatBreakdownEntry {
+  vatRate: number;
+  base: string;
+  vatAmount: string;
+}
+
+export interface SalePaymentDetail {
+  id: string;
+  method: PaymentMethod;
+  amount: string;
+  receivedAmount: string | null;
+}
+
+export interface SaleReturnSummary {
+  id: string;
+  returnNo: string;
+  totalAmount: string;
+  refundMethod: PaymentMethod;
+  createdAt: string;
+}
+
+export interface SaleDetail {
+  id: string;
+  receiptNo: string;
+  clientSaleId: string | null;
+  status: SaleStatus;
+  subtotal: string;
+  discountTotal: string;
+  vatTotal: string;
+  grandTotal: string;
+  vatBreakdown: VatBreakdownEntry[];
+  soldAt: string;
+  cancelledAt: string | null;
+  note: string | null;
+  contact: { id: string; name: string } | null;
+  user: { id: string; fullName: string };
+  items: SaleItemDetail[];
+  payments: SalePaymentDetail[];
+  returns: SaleReturnSummary[];
+}
+
+export interface ReceiptItem {
+  productName: string;
+  quantity: string;
+  unitPrice: string;
+  lineTotal: string;
+  vatRate: number;
+}
+
+export interface Receipt {
+  receiptNo: string;
+  soldAt: string;
+  subtotal: string;
+  discountTotal: string;
+  vatTotal: string;
+  grandTotal: string;
+  vatBreakdown: VatBreakdownEntry[];
+  contact: { name: string } | null;
+  items: ReceiptItem[];
+  payments: { method: PaymentMethod; amount: string; receivedAmount: string | null }[];
+  header: string | null;
+  footer: string | null;
+}
+
+// --- Raporlar ---
+
+export interface ProfitSeriesPoint {
+  date: string;
+  revenue: string;
+  cost: string;
+  profit: string;
+  marginPct: string;
+}
+
+export interface ProfitReport {
+  period: { from: string; to: string };
+  granularity: string;
+  series: ProfitSeriesPoint[];
+  totals: { revenue: string; cost: string; profit: string };
+}
+
+export interface TopProductRow {
+  productId: string;
+  name: string;
+  quantity: string;
+  revenue: string;
+  /** Yalnız PRODUCT_COST_VIEW yetkisiyle döner. */
+  profit?: string;
+}
+
+export interface TopProductsReport {
+  period: { from: string; to: string };
+  items: TopProductRow[];
+}
+
+export interface CashierRow {
+  userId: string;
+  name: string;
+  salesCount: number;
+  salesTotal: string;
+  avgBasket: string;
+}
+
+export interface CashierReport {
+  period: { from: string; to: string };
+  cashiers: CashierRow[];
+}
+
+export interface HourlyDensityCell {
+  weekday: number;
+  hour: number;
+  count: number;
+  total: string;
+}
+
+export interface HourlyDensityReport {
+  period: { from: string; to: string };
+  cells: HourlyDensityCell[];
+}
+
+export interface StockValueReport {
+  totalCostValue: string;
+  totalSaleValue: string;
+  byCategory: { categoryId: string | null; name: string; costValue: string; saleValue: string }[];
+}
+
+export interface PaymentDistributionReport {
+  period: { from: string; to: string };
+  total: string;
+  methods: { method: PaymentMethod; total: string; count: number; pct: string }[];
+}
+
+export interface DailyShiftRow {
+  id: string;
+  cashier: string;
+  opening: string;
+  expected: string | null;
+  closing: string | null;
+  difference: string | null;
+  salesTotal: string;
+}
+
+export interface DailyShiftReport {
+  date: string;
+  sessions: DailyShiftRow[];
+}
+
+export type ExportReportKey =
+  'sales' | 'profit' | 'top-products' | 'payment-distribution' | 'cashier-performance';
+
+export type ExportJobStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+
+export interface ExportJob {
+  id: string;
+  report: string;
+  format: 'XLSX' | 'PDF';
+  status: ExportJobStatus;
+  /** Hazır olduğunda dosyanın indirilebilir adresi (S3/MinIO). */
+  fileUrl: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+// --- e-Fatura ---
+
+export type EInvoiceStatus = 'DRAFT' | 'SENT' | 'ACCEPTED' | 'REJECTED' | 'CANCELLED';
+
+export type EInvoiceType = 'E_INVOICE' | 'E_ARCHIVE';
+
+export interface EInvoiceRow {
+  id: string;
+  saleId: string | null;
+  contactId: string | null;
+  type: EInvoiceType;
+  status: EInvoiceStatus;
+  /** Entegratörün verdiği kimlik (mock sağlayıcıda da dolar). */
+  externalId: string | null;
+  invoiceNo: string | null;
+  totalAmount: string;
+  vatTotal: string;
+  errorMessage: string | null;
+  sentAt: string | null;
+  respondedAt: string | null;
+  createdAt: string;
+}
+
+// --- Kullanıcı & rol ---
+
+export type UserStatus = 'ACTIVE' | 'INACTIVE';
+
+export interface ManagedUser {
+  id: string;
+  email: string;
+  fullName: string;
+  phone: string | null;
+  status: UserStatus;
+  lastLoginAt: string | null;
+  createdAt: string;
+  roles: { role: { id: string; name: string } }[];
+}
+
+export interface Role {
+  id: string;
+  name: string;
+  description: string | null;
+  /** Sistem rolü (Patron/Yönetici/Kasiyer) — adı değiştirilemez, silinemez. */
+  isSystem: boolean;
+  createdAt: string;
+  permissions: { permission: { code: string } }[];
+  _count: { users: number };
+}
+
+/** İzin kataloğu kaynak bazında gruplu döner (rol matrisi bu gruplamayı kullanır). */
+export interface PermissionGroup {
+  resource: string;
+  permissions: { code: string; resource: string; action: string; description: string | null }[];
+}
+
+// --- Ayarlar ---
+
+export type SubscriptionPlan = 'BASIC' | 'PLUS' | 'PREMIUM';
+export type TenantStatus = 'TRIAL' | 'ACTIVE' | 'SUSPENDED' | 'CANCELLED';
+
+export interface TenantInfo {
+  id: string;
+  name: string;
+  legalName: string | null;
+  taxNumber: string | null;
+  taxOffice: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  plan: SubscriptionPlan;
+  status: TenantStatus;
+  trialEndsAt: string | null;
+}
+
+export interface TenantSettings {
+  vatRates: number[];
+  defaultVatRate: number;
+  currency: string;
+  timezone: string;
+  negativeStockPolicy: 'WARN' | 'BLOCK';
+  highDiscountThreshold: string;
+  cashDifferenceThreshold: string;
+  eArchiveThreshold: string;
+  scaleBarcodePrefixes: string[];
+  receiptHeader: string | null;
+  receiptFooter: string | null;
+  logoUrl: string | null;
+  receiptPrinterName: string | null;
+  receiptWidthMm: number;
+  autoPrintReceipt: boolean;
+  eInvoiceUsername: string | null;
+  /** Maskeli gösterim ("••••1234") ya da tanımlı değilse null. Düz metin ASLA dönmez. */
+  eInvoiceSecretMask: string | null;
+  smsSenderTitle: string | null;
+  smsApiKeyMask: string | null;
+}
+
+export interface SettingsResponse {
+  tenant: TenantInfo;
+  settings: TenantSettings;
+}
+
+// --- Denetim kaydı ---
+
+export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'LOGOUT' | 'LOGIN_FAILED';
+
+export interface AuditLogRow {
+  id: string;
+  action: AuditAction;
+  entity: string;
+  entityId: string | null;
+  changes: unknown;
+  ipAddress: string | null;
+  createdAt: string;
+  user: { id: string; fullName: string } | null;
+}

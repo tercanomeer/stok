@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Header, Param, Post, Res, StreamableFile } from '@nestjs/common';
+import type { Response } from 'express';
 
 import { PERMISSIONS } from '@stokk/types';
 
@@ -26,5 +27,22 @@ export class ExportController {
   @Permissions(PERMISSIONS.REPORT_EXPORT)
   status(@Param('jobId') jobId: string) {
     return this.exports.getStatus(jobId);
+  }
+
+  /**
+   * Hazır rapor dosyasını indirir. Nesne deposu özel olduğu için dosya
+   * doğrudan adresle açılamaz; indirme yetki kontrolünden geçer.
+   */
+  @Get(':jobId/file')
+  @Permissions(PERMISSIONS.REPORT_EXPORT)
+  @Header('Cache-Control', 'no-store')
+  async file(
+    @Param('jobId') jobId: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const { body, fileName, contentType } = await this.exports.downloadFile(jobId);
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    return new StreamableFile(body);
   }
 }

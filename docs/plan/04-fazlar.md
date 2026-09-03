@@ -439,14 +439,14 @@ pnpm test --filter @stokk/api
 
 ### Yapılacak işler
 
-- [ ] Satış listesi: tarih/kasiyer/ödeme tipi filtreleri, satış detayı, fiş önizleme
-- [ ] İade ekranı: fiş ara → kalem seç → iade sebebi → onay
-- [ ] Rapor ekranları: grafik + tablo + tarih aralığı + Excel/PDF indirme
-- [ ] e-Fatura ekranları: liste, durum takibi, PDF görüntüleme, yeniden gönderme
-- [ ] Kullanıcı yönetimi: davet/oluştur, rol atama, aktif/pasif
-- [ ] Rol yönetimi: izin matrisi (kategori bazlı gruplanmış onay kutuları)
-- [ ] Ayarlar: firma bilgileri, fiş şablonu, KDV oranları, yazıcı varsayılanları, e-fatura kimlik bilgileri (maskeli), SMS, abonelik görünümü
-- [ ] Denetim kaydı (audit log) görüntüleyici
+- [x] Satış listesi: tarih/kasiyer/ödeme tipi filtreleri, satış detayı, fiş önizleme
+- [x] İade ekranı: fiş ara → kalem seç → iade sebebi → onay
+- [x] Rapor ekranları: grafik + tablo + tarih aralığı + Excel/PDF indirme
+- [x] e-Fatura ekranları: liste, durum takibi, PDF görüntüleme, yeniden gönderme
+- [x] Kullanıcı yönetimi: davet/oluştur, rol atama, aktif/pasif
+- [x] Rol yönetimi: izin matrisi (kategori bazlı gruplanmış onay kutuları)
+- [x] Ayarlar: firma bilgileri, fiş şablonu, KDV oranları, yazıcı varsayılanları, e-fatura kimlik bilgileri (maskeli), SMS, abonelik görünümü
+- [x] Denetim kaydı (audit log) görüntüleyici
 
 ### Kullanılacak ajanlar
 

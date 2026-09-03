@@ -7,7 +7,11 @@ import PDFDocument from 'pdfkit';
 import { AuditAction } from '@stokk/db';
 
 import type { CreateExportInput } from './dto/export.dto.js';
-import { NotFoundError, ValidationError } from '../../common/errors/domain-error.js';
+import {
+  BusinessRuleError,
+  NotFoundError,
+  ValidationError,
+} from '../../common/errors/domain-error.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { runWithTenantContext } from '../../prisma/tenant-context.js';
 import { StorageService } from '../../storage/storage.service.js';
@@ -91,6 +95,31 @@ export class ExportService {
     );
     if (!job) throw new NotFoundError('Export işi bulunamadı.');
     return job;
+  }
+
+  /**
+   * Hazır export dosyasını okur. Nesne deposu ÖZELdir, adres doğrudan açılamaz;
+   * dosya yetki kontrolünden geçen bu uç üzerinden akıtılır (ekstre Excel'iyle
+   * aynı desen). İş tenant kapsamında okunduğu için başka tenant'ın dosyası
+   * indirilemez.
+   */
+  async downloadFile(
+    jobId: string,
+  ): Promise<{ body: Buffer; fileName: string; contentType: string }> {
+    const job = await this.getStatus(jobId);
+    if (job.status !== 'COMPLETED' || !job.fileUrl) {
+      throw new BusinessRuleError('EXPORT_NOT_READY', 'Rapor dosyası henüz hazır değil.');
+    }
+    const body = await this.storage.download(this.storage.objectKeyFromUrl(job.fileUrl));
+    const extension = job.format === 'PDF' ? 'pdf' : 'xlsx';
+    return {
+      body,
+      fileName: `${job.report}-${job.id}.${extension}`,
+      contentType:
+        job.format === 'PDF'
+          ? 'application/pdf'
+          : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    };
   }
 
   /** Worker'dan çağrılır — tenant bağlamı burada kurulur (runWithTenantContext). */

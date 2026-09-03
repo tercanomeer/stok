@@ -119,3 +119,33 @@ function parseRate(value: string | undefined, code: string): Decimal {
   }
   return rate;
 }
+
+/**
+ * İade tutarı — satırdan İADE EDİLEN ORANIN gerçekte tahsil edilen tutarı.
+ *
+ * `SaleItem.unitPrice` indirim ÖNCESİ ham birim fiyattır; müşterinin ödediği
+ * `lineTotal`'dır (satır + belge indirimi uygulanmış). İadeyi `unitPrice × miktar`
+ * ile hesaplamak indirimli satışta FAZLA ÖDEME üretir: 100 TL'lik ürün %10 indirimle
+ * 90 TL'ye satıldıysa iadesi 90 TL olmalı, 100 TL değil.
+ *
+ * Bu yüzden ödenen tutar oranlanır: lineTotal × (iade miktarı / satılan miktar).
+ * Backend iadeyi kaydederken, web iade ekranı tutarı gösterirken aynı fonksiyonu çağırır.
+ */
+export function calculateRefundAmount(
+  lineTotal: string,
+  soldQuantity: string,
+  returnQuantity: string,
+): string {
+  const sold = d(soldQuantity);
+  const returned = d(returnQuantity);
+  if (sold.lessThanOrEqualTo(0)) {
+    throw new PosCoreError('INVALID_QUANTITY', 'Satılan miktar sıfırdan büyük olmalı.');
+  }
+  if (returned.lessThan(0)) {
+    throw new PosCoreError('INVALID_QUANTITY', 'İade miktarı negatif olamaz.');
+  }
+  if (returned.greaterThan(sold)) {
+    throw new PosCoreError('RETURN_EXCEEDS_SOLD', 'İade miktarı satılandan fazla olamaz.');
+  }
+  return round2(d(lineTotal).mul(returned).div(sold)).toFixed(2);
+}

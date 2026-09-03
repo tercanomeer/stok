@@ -68,6 +68,12 @@ export const returnSaleSchema = z
 export const listSalesSchema = paginationSchema.extend({
   cashSessionId: z.string().min(1).optional(),
   status: z.enum(['PARKED', 'COMPLETED', 'CANCELLED', 'PARTIALLY_RETURNED', 'RETURNED']).optional(),
+  /** Kasiyer filtresi — satışı kaydeden kullanıcı. */
+  userId: z.string().min(1).optional(),
+  /** Ödeme tipi filtresi: satışın ödemelerinden en az biri bu yöntemle yapılmışsa eşleşir. */
+  paymentMethod: z.enum(['CASH', 'CARD', 'CREDIT', 'TRANSFER']).optional(),
+  from: z.iso.datetime().optional(),
+  to: z.iso.datetime().optional(),
 });
 
 export type CreateSaleInput = z.infer<typeof createSaleSchema>;

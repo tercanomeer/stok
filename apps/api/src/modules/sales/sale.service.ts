@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 
 import { AuditAction, Prisma } from '@stokk/db';
-import { calculateSaleBreakdown, type SaleBreakdown } from '@stokk/pos-core';
+import { calculateRefundAmount, calculateSaleBreakdown, type SaleBreakdown } from '@stokk/pos-core';
 import { PERMISSIONS } from '@stokk/types';
 
 import { SequenceService } from './sequence.service.js';
@@ -327,6 +327,9 @@ export class SaleService {
               quantity: true,
               unitPrice: true,
               vatRate: true,
+              // İade tutarı ÖDENEN tutardan (lineTotal) oranlanır; ham unitPrice
+              // indirim öncesidir ve indirimli satışta fazla ödeme üretir.
+              lineTotal: true,
               returnItems: { select: { quantity: true } },
             },
           },
@@ -358,8 +361,23 @@ export class SaleService {
         })
         .sort((a, b) => (a.item.productId < b.item.productId ? -1 : 1));
 
+      // İade tutarı = ödenen satır tutarının iade edilen oranı (pos-core, TEK hesap).
+      // Web iade ekranı da aynı fonksiyonu çağırır; ekranda görülen tutarla
+      // kasadan çıkan tutar ayrışamaz.
+      const refundByItem = new Map(
+        returnLines.map((l) => [
+          l.item.id,
+          new Prisma.Decimal(
+            calculateRefundAmount(
+              l.item.lineTotal.toString(),
+              l.item.quantity.toString(),
+              l.qty.toString(),
+            ),
+          ),
+        ]),
+      );
       const totalAmount = returnLines.reduce(
-        (acc, l) => acc.plus(l.item.unitPrice.mul(l.qty).toDecimalPlaces(2)),
+        (acc, l) => acc.plus(refundByItem.get(l.item.id) ?? new Prisma.Decimal(0)),
         new Prisma.Decimal(0),
       );
 
@@ -381,7 +399,7 @@ export class SaleService {
               quantity: l.qty,
               unitPrice: l.item.unitPrice,
               vatRate: l.item.vatRate,
-              lineTotal: l.item.unitPrice.mul(l.qty).toDecimalPlaces(2),
+              lineTotal: refundByItem.get(l.item.id) ?? new Prisma.Decimal(0),
             })),
           },
         },
@@ -457,6 +475,19 @@ export class SaleService {
       const where: Prisma.SaleWhereInput = {};
       if (input.cashSessionId) where.cashSessionId = input.cashSessionId;
       if (input.status) where.status = input.status;
+      if (input.userId) where.userId = input.userId;
+      // Ödeme tipi satışın kendisinde değil kalemlerinde: parçalı ödemede satış
+      // hem nakit hem kart olabilir, `some` ile "bu yöntemi içeren satışlar" denir.
+      if (input.paymentMethod) where.payments = { some: { method: input.paymentMethod } };
+      if (input.from || input.to) {
+        where.soldAt = {
+          ...(input.from ? { gte: new Date(input.from) } : {}),
+          ...(input.to ? { lte: new Date(input.to) } : {}),
+        };
+      }
+      if (input.search) {
+        where.receiptNo = { contains: input.search, mode: 'insensitive' };
+      }
       const { skip, take } = toSkipTake(input);
       const [total, items] = await Promise.all([
         tx.sale.count({ where }),
@@ -469,6 +500,8 @@ export class SaleService {
             grandTotal: true,
             soldAt: true,
             contact: { select: { id: true, name: true } },
+            user: { select: { id: true, fullName: true } },
+            payments: { select: { method: true } },
           },
           orderBy: { soldAt: 'desc' },
           skip,
@@ -497,6 +530,7 @@ export class SaleService {
           cancelledAt: true,
           note: true,
           contact: { select: { id: true, name: true } },
+          user: { select: { id: true, fullName: true } },
           items: {
             select: {
               id: true,
@@ -509,6 +543,9 @@ export class SaleService {
               netAmount: true,
               vatAmount: true,
               lineTotal: true,
+              // İade ekranı kalan iade edilebilir miktarı bilmek zorunda; sunucu
+              // `createReturn`'de aynı toplamı kullanıyor (RETURN_EXCEEDS_SOLD).
+              returnItems: { select: { quantity: true } },
             },
           },
           payments: { select: { id: true, method: true, amount: true, receivedAmount: true } },

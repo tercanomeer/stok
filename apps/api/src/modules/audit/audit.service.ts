@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 
 import { AuditAction, Prisma } from '@stokk/db';
 
+import type { ListAuditLogsInput } from './dto/audit.dto.js';
+import { paginate, toSkipTake } from '../../common/pagination/pagination.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { getTenantContext } from '../../prisma/tenant-context.js';
 
@@ -63,6 +65,52 @@ export class AuditService {
         `Audit kaydı yazılamadı (${entry.entity}): ${error instanceof Error ? error.message : 'bilinmeyen'}`,
       );
     }
+  }
+  /**
+   * Denetim kaydı listesi — kim, ne zaman, neyi değiştirdi.
+   * Salt okunur: audit kaydı ekrandan düzenlenemez, silinemez.
+   */
+  async list(input: ListAuditLogsInput) {
+    return this.prisma.withTenant(async (tx) => {
+      const where: Prisma.AuditLogWhereInput = {};
+      if (input.action) where.action = input.action;
+      if (input.entity) where.entity = input.entity;
+      if (input.userId) where.userId = input.userId;
+      if (input.from || input.to) {
+        where.createdAt = {
+          ...(input.from ? { gte: new Date(input.from) } : {}),
+          ...(input.to ? { lte: new Date(input.to) } : {}),
+        };
+      }
+      if (input.search) {
+        where.OR = [
+          { entity: { contains: input.search, mode: 'insensitive' } },
+          { entityId: { contains: input.search } },
+        ];
+      }
+
+      const { skip, take } = toSkipTake(input);
+      const [total, items] = await Promise.all([
+        tx.auditLog.count({ where }),
+        tx.auditLog.findMany({
+          where,
+          select: {
+            id: true,
+            action: true,
+            entity: true,
+            entityId: true,
+            changes: true,
+            ipAddress: true,
+            createdAt: true,
+            user: { select: { id: true, fullName: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take,
+        }),
+      ]);
+      return paginate(items, total, input);
+    });
   }
 }
 

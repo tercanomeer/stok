@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
 import { AuditAction } from '@stokk/db';
+import { PERMISSIONS } from '@stokk/types';
 
 import type { CreateRoleInput, UpdateRoleInput } from './dto/role.dto.js';
 import { BusinessRuleError, NotFoundError } from '../../common/errors/domain-error.js';
@@ -85,6 +86,7 @@ export class RolesService {
       }
 
       if (input.permissions) {
+        await this.assertAdminAccessSurvives(tx, id, input.permissions);
         await this.syncPermissions(tx, id, input.permissions);
       }
 
@@ -127,6 +129,42 @@ export class RolesService {
     });
 
     await this.audit.record({ action: AuditAction.DELETE, entity: 'Role', entityId: id });
+  }
+
+  /**
+   * Rolden `role.manage` kaldırılırken tenant'ta bu izne sahip AKTİF kullanıcı
+   * kalıyor mu kontrol eder.
+   *
+   * Kalmıyorsa işlem reddedilir: tek Patron kendi rolünden bu izni kaldırırsa
+   * rol yönetimine bir daha giremez ve geri dönüş yalnız veritabanı müdahalesiyle
+   * olur — ekranın tek tıkla üretebileceği kalıcı kilitlenme.
+   */
+  private async assertAdminAccessSurvives(
+    tx: TenantTransaction,
+    roleId: string,
+    nextPermissions: string[],
+  ): Promise<void> {
+    if (nextPermissions.includes(PERMISSIONS.ROLE_MANAGE)) return;
+
+    const hadPermission = await tx.rolePermission.findFirst({
+      where: { roleId, permission: { code: PERMISSIONS.ROLE_MANAGE } },
+      select: { roleId: true },
+    });
+    if (!hadPermission) return; // Zaten yoktu, bir şey kaybedilmiyor.
+
+    const otherAdmins = await tx.userRole.count({
+      where: {
+        user: { status: 'ACTIVE', deletedAt: null },
+        roleId: { not: roleId },
+        role: { permissions: { some: { permission: { code: PERMISSIONS.ROLE_MANAGE } } } },
+      },
+    });
+    if (otherAdmins === 0) {
+      throw new BusinessRuleError(
+        'LAST_ROLE_ADMIN',
+        'Bu izni kaldırırsanız rol yönetimine erişebilen kimse kalmaz. Önce başka bir kullanıcıya rol yönetme yetkisi verin.',
+      );
+    }
   }
 
   private async syncPermissions(

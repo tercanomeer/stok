@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { PosCoreError } from './money';
-import { calculateSaleBreakdown, calculateSaleTotals } from './sale-calc';
+import { calculateRefundAmount, calculateSaleBreakdown, calculateSaleTotals } from './sale-calc';
 
 describe('calculateSaleTotals', () => {
   it('tek kalem: KDV dahil fiyattan KDV geri ayrıştırılır (kuruş yuvarlama)', () => {
@@ -228,5 +228,36 @@ describe('calculateSaleBreakdown (satır çıktısı)', () => {
     // Satır discountAmount toplamı, genel discountTotal'a eşit olmalı.
     const sumLineDiscount = b.lines.reduce((s, l) => s + Number(l.discountAmount), 0);
     expect(sumLineDiscount.toFixed(2)).toBe(b.totals.discountTotal);
+  });
+});
+
+describe('calculateRefundAmount', () => {
+  it('indirimsiz satışta ödenen tutarı oranlar', () => {
+    expect(calculateRefundAmount('100.00', '2', '1')).toBe('50.00');
+    expect(calculateRefundAmount('100.00', '2', '2')).toBe('100.00');
+  });
+
+  it('İNDİRİMLİ satışta ham birim fiyatı değil ÖDENEN tutarı iade eder', () => {
+    // 100 TL birim fiyat, %10 indirim → lineTotal 90. 1 adet iadesi 90 olmalı, 100 değil.
+    expect(calculateRefundAmount('90.00', '1', '1')).toBe('90.00');
+    // 10 adet 900 TL ödenmiş; 3 adet iadesi 270 TL.
+    expect(calculateRefundAmount('900.00', '10', '3')).toBe('270.00');
+  });
+
+  it('kuruş yuvarlaması yarıyı yukarı yapar', () => {
+    expect(calculateRefundAmount('10.00', '3', '1')).toBe('3.33');
+    expect(calculateRefundAmount('0.05', '2', '1')).toBe('0.03');
+  });
+
+  it('ondalıklı miktarda (tartılı ürün) doğru oranlar', () => {
+    expect(calculateRefundAmount('45.00', '1.5', '0.5')).toBe('15.00');
+  });
+
+  it('satılandan fazla iade reddedilir', () => {
+    expect(() => calculateRefundAmount('100.00', '2', '3')).toThrow(PosCoreError);
+  });
+
+  it('sıfır satış miktarı reddedilir', () => {
+    expect(() => calculateRefundAmount('100.00', '0', '1')).toThrow(PosCoreError);
   });
 });

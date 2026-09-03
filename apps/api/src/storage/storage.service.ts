@@ -2,13 +2,14 @@ import { randomUUID } from 'node:crypto';
 
 import {
   CreateBucketCommand,
+  GetObjectCommand,
   HeadBucketCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
 import { Inject, Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 
-import { ValidationError } from '../common/errors/domain-error.js';
+import { NotFoundError, ValidationError } from '../common/errors/domain-error.js';
 import { ENV } from '../config/config.module.js';
 import type { Env } from '../config/env.js';
 
@@ -99,6 +100,27 @@ export class StorageService implements OnModuleInit {
       new PutObjectCommand({ Bucket: this.bucket, Key: key, Body: body, ContentType: contentType }),
     );
     return `${this.publicBase}/${key}`;
+  }
+
+  /**
+   * Depodaki nesneyi okur. Kova ÖZELdir; dosyalar doğrudan URL ile açılmaz
+   * (403). İndirme, yetki kontrolü yapan bir uç üzerinden akıtılır — ekstre
+   * Excel'inde olduğu gibi.
+   */
+  async download(key: string): Promise<Buffer> {
+    const result = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
+    const body = result.Body;
+    if (!body) throw new NotFoundError('Dosya bulunamadı.');
+    return Buffer.from(await body.transformToByteArray());
+  }
+
+  /** Kayıtlı genel adresten nesne anahtarını çıkarır (depo dışı adres kabul edilmez). */
+  objectKeyFromUrl(url: string): string {
+    const prefix = `${this.publicBase}/`;
+    if (!url.startsWith(prefix)) {
+      throw new ValidationError('Dosya adresi bu depoya ait değil.');
+    }
+    return url.slice(prefix.length);
   }
 
   get imageConstraints(): { types: readonly string[]; maxBytes: number } {

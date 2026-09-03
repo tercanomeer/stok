@@ -6,6 +6,28 @@
 @source '../../../../packages/ui/src';
 
 /*
+ * Grafik kategorik paleti (dataviz skill'i ile doğrulandı).
+ *
+ * JS ile tema okumak yerine CSS değişkeni: sunucu/istemci ilk render'ı aynı olur,
+ * "mounted" bekleme durumu ve hidrasyon uyuşmazlığı riski kalmaz. Sıra SABİTTİR.
+ * Açık palet #ffffff, koyu palet #121a16 yüzeyine göre doğrulandı; açık temadaki
+ * kontrast uyarısı doğrudan etiket + tablo görünümüyle karşılanır.
+ */
+:root {
+  --viz-1: #2a78d6;
+  --viz-2: #eb6834;
+  --viz-3: #1baf7a;
+  --viz-4: #eda100;
+}
+
+.dark {
+  --viz-1: #3987e5;
+  --viz-2: #d95926;
+  --viz-3: #199e70;
+  --viz-4: #c98500;
+}
+
+/*
  * Yazdırma (ekstre → PDF). Ayrı bir PDF kütüphanesi eklenmedi (Faz 5 kararı:
  * "PDF çıktısı web tarafında ekstre JSON'undan basılır, yeni ağır bağımlılık eklenmez").
  * Tarayıcının "PDF olarak kaydet" seçeneği bu düzeni kullanır.
