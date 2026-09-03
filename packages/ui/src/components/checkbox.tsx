@@ -8,7 +8,7 @@ import { cn } from '../lib/cn.js';
 export interface CheckboxProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> {
   /** Kısmi seçim (liste başlığında "bazıları seçili"). */
   indeterminate?: boolean;
-  ref?: Ref<HTMLInputElement>;
+  ref?: Ref<HTMLInputElement> | undefined;
 }
 
 /**

@@ -4,3 +4,33 @@
 /* Tailwind 4 otomatik içerik taraması node_modules'a (pnpm symlink) girmez.
    Bu satır olmadan @stokk/ui component'lerinin class'ları production build'de purge edilir. */
 @source '../../../../packages/ui/src';
+
+/*
+ * Yazdırma (ekstre → PDF). Ayrı bir PDF kütüphanesi eklenmedi (Faz 5 kararı:
+ * "PDF çıktısı web tarafında ekstre JSON'undan basılır, yeni ağır bağımlılık eklenmez").
+ * Tarayıcının "PDF olarak kaydet" seçeneği bu düzeni kullanır.
+ */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  /* Panel kabuğu ekranı sabitliyor; yazdırmada içerik akıp tüm sayfalara bölünmeli. */
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+  .print-flow,
+  .print-flow * {
+    overflow: visible !important;
+  }
+  .print-flow {
+    height: auto !important;
+    max-height: none !important;
+  }
+  /* Satırlar sayfa sonunda ikiye bölünmesin. */
+  tr {
+    break-inside: avoid;
+  }
+}

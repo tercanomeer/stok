@@ -56,3 +56,51 @@ export interface SaleBreakdown {
   lines: SaleLineResult[];
   totals: SaleTotals;
 }
+
+// --- Alış faturası ---
+
+/**
+ * Alış hesaplamasının sözleşmesi. SATIŞTAN FARKI: `unitPrice` KDV **HARİÇ**
+ * (`PurchaseItem.unitPrice`), KDV matrahın üstüne eklenir.
+ */
+export interface PurchaseLineInput {
+  productId: string;
+  quantity: string;
+  /** Birim alış fiyatı — KDV HARİÇ. */
+  unitPrice: string;
+  vatRate: number;
+  discountRate?: string;
+}
+
+export interface PurchaseCalculationInput {
+  lines: PurchaseLineInput[];
+}
+
+export interface PurchaseLineResult {
+  productId: string;
+  quantity: string;
+  unitPrice: string;
+  vatRate: number;
+  discountRate: string;
+  /** İskonto sonrası satır matrahı (KDV hariç) — maliyetin dayandığı tutar. */
+  lineTotal: string;
+  vatAmount: string;
+  /** Bu satırda verilen iskonto (KDV hariç). */
+  discountAmount: string;
+  /** Satırın KDV dahil tutarı — yalnız ekranda gösterim için. */
+  lineGrandTotal: string;
+}
+
+export interface PurchaseTotals {
+  /** KDV HARİÇ toplam matrah (satıştaki subtotal ile aynı anlamda değil). */
+  subtotal: string;
+  discountTotal: string;
+  vatTotal: string;
+  /** subtotal + vatTotal — tedarikçiye borçlanılan tutar. */
+  grandTotal: string;
+}
+
+export interface PurchaseBreakdown {
+  lines: PurchaseLineResult[];
+  totals: PurchaseTotals;
+}

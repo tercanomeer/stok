@@ -119,6 +119,21 @@ export async function apiUpload<T>(url: string, file: File, field = 'file'): Pro
   return res.data.data;
 }
 
+/**
+ * Yetki gerektiren dosya indirme (ekstre Excel). Doğrudan `<a href>` ile açmak
+ * Authorization başlığını taşımaz — 401 döner; bu yüzden blob olarak çekilip
+ * geçici bir bağlantıyla kaydettirilir.
+ */
+export async function apiDownload(url: string, fileName: string): Promise<void> {
+  const res = await api.get<Blob>(url, { responseType: 'blob' });
+  const objectUrl = URL.createObjectURL(res.data);
+  const link = document.createElement('a');
+  link.href = objectUrl;
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(objectUrl);
+}
+
 /** Axios hatasından kullanıcıya gösterilecek Türkçe mesajı çıkarır. */
 export function apiErrorMessage(
   error: unknown,

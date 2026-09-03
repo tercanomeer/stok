@@ -8,11 +8,11 @@ import { RouteGuard } from '../../components/route-guard';
 export default function DashboardLayout({ children }: { children: ReactNode }): React.JSX.Element {
   return (
     <RouteGuard>
-      <div className="flex h-screen overflow-hidden">
+      <div className="print-flow flex h-screen overflow-hidden">
         <AppSidebar />
         <div className="flex min-w-0 flex-1 flex-col">
           <AppTopbar />
-          <main className="flex-1 overflow-y-auto p-6">{children}</main>
+          <main className="print-flow flex-1 overflow-y-auto p-6">{children}</main>
         </div>
       </div>
     </RouteGuard>

@@ -5,7 +5,7 @@ import { cn } from '../lib/cn.js';
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   /** Hatalı alan: kenarlık ve odak halkası danger'a döner. */
   invalid?: boolean;
-  ref?: Ref<HTMLInputElement>;
+  ref?: Ref<HTMLInputElement> | undefined;
 }
 
 export function Input({ className, invalid = false, ref, ...props }: InputProps): ReactElement {

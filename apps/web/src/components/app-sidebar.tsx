@@ -20,7 +20,7 @@ export function AppSidebar(): ReactElement {
   );
 
   return (
-    <aside className="border-border bg-surface-sunken hidden h-full w-60 shrink-0 flex-col border-r lg:flex">
+    <aside className="border-border bg-surface-sunken no-print hidden h-full w-60 shrink-0 flex-col border-r lg:flex">
       <div className="flex h-16 items-center px-5">
         <BrandWordmark />
       </div>

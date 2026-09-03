@@ -226,3 +226,195 @@ export interface StockCountCompleteResult {
   items: number;
   adjustments: number;
 }
+
+// --- Cari ---
+
+export type ContactType = 'CUSTOMER' | 'SUPPLIER' | 'BOTH';
+export type PaymentMethod = 'CASH' | 'CARD' | 'CREDIT' | 'TRANSFER';
+
+/**
+ * Bakiye konvansiyonu (backend `ContactService`): balance > 0 = cari BİZE borçlu,
+ * balance < 0 = BİZ cariye borçluyuz. Ekranda bu işaret çevrilmez, etiketlenir.
+ */
+export interface Contact {
+  id: string;
+  type: ContactType;
+  name: string;
+  code: string | null;
+  taxNumber: string | null;
+  taxOffice: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  creditLimit: string;
+  balance: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export type ContactTransactionType = 'DEBIT' | 'CREDIT';
+
+export interface ContactTransaction {
+  id: string;
+  type: ContactTransactionType;
+  amount: string;
+  balanceAfter: string;
+  paymentMethod: PaymentMethod | null;
+  description: string | null;
+  createdAt: string;
+}
+
+export interface ContactStatement {
+  contact: { id: string; name: string; balance: string };
+  period: { from: string; to: string };
+  opening: string;
+  closing: string;
+  movements: ContactTransaction[];
+}
+
+export interface AgingBuckets {
+  current: string;
+  days31to60: string;
+  days61to90: string;
+  over90: string;
+  total: string;
+}
+
+export interface ContactAgingRow extends AgingBuckets {
+  contactId: string;
+  name: string;
+}
+
+export interface ContactAgingReport {
+  contacts: ContactAgingRow[];
+  totals: Omit<AgingBuckets, 'total'>;
+}
+
+// --- Alış faturası ---
+
+export type PurchaseStatus = 'COMPLETED' | 'CANCELLED';
+
+export interface PurchaseListItem {
+  id: string;
+  invoiceNo: string | null;
+  status: PurchaseStatus;
+  invoiceDate: string;
+  grandTotal: string;
+  createdAt: string;
+  contact: { id: string; name: string };
+}
+
+export interface PurchaseItemDetail {
+  id: string;
+  productId: string;
+  quantity: string;
+  /** KDV HARİÇ birim alış fiyatı. */
+  unitPrice: string;
+  discountRate: string;
+  vatRate: number;
+  /** İskonto sonrası satır matrahı (KDV hariç). */
+  lineTotal: string;
+  vatAmount: string;
+  product: { name: string };
+}
+
+export interface PurchaseDetail {
+  id: string;
+  invoiceNo: string | null;
+  status: PurchaseStatus;
+  invoiceDate: string;
+  subtotal: string;
+  discountTotal: string;
+  vatTotal: string;
+  grandTotal: string;
+  note: string | null;
+  createdAt: string;
+  cancelledAt: string | null;
+  contact: { id: string; name: string };
+  items: PurchaseItemDetail[];
+}
+
+// --- Finans ---
+
+export interface ExpenseCategory {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
+export interface Expense {
+  id: string;
+  amount: string;
+  paymentMethod: PaymentMethod;
+  description: string;
+  expenseDate: string;
+  documentNo: string | null;
+  category: { id: string; name: string } | null;
+}
+
+export interface Income {
+  id: string;
+  amount: string;
+  paymentMethod: PaymentMethod;
+  description: string;
+  incomeDate: string;
+  documentNo: string | null;
+}
+
+// --- Kasa / vardiya ---
+
+export interface Register {
+  id: string;
+  name: string;
+  isActive: boolean;
+}
+
+export type CashSessionStatus = 'OPEN' | 'CLOSED';
+
+export interface CashSessionListItem {
+  id: string;
+  registerId: string;
+  userId: string;
+  status: CashSessionStatus;
+  openingAmount: string;
+  closingAmount: string | null;
+  differenceAmount: string | null;
+  openedAt: string;
+  closedAt: string | null;
+  register: { name: string };
+}
+
+export type CashMovementType =
+  | 'OPENING'
+  | 'SALE'
+  | 'SALE_REFUND'
+  | 'COLLECTION'
+  | 'PAYMENT'
+  | 'EXPENSE'
+  | 'DEPOSIT'
+  | 'WITHDRAWAL'
+  | 'CLOSING';
+
+/** Tutar İŞARETLİ: giriş pozitif, çıkış negatif (beklenen kasa = hareketlerin toplamı). */
+export interface CashMovement {
+  id: string;
+  type: CashMovementType;
+  amount: string;
+  description: string | null;
+  createdAt: string;
+}
+
+export interface CashSessionDetail {
+  id: string;
+  registerId: string;
+  userId: string;
+  status: CashSessionStatus;
+  openingAmount: string;
+  closingAmount: string | null;
+  expectedAmount: string | null;
+  differenceAmount: string | null;
+  openedAt: string;
+  closedAt: string | null;
+  note: string | null;
+  movements: CashMovement[];
+}

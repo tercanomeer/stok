@@ -2,7 +2,8 @@ import type { ReactElement, ReactNode } from 'react';
 
 export interface PageHeaderProps {
   title: string;
-  description?: string;
+  /** Bağlantı içerebilir (ör. fatura başlığında tedarikçi linki). */
+  description?: ReactNode;
   /** Sağdaki birincil eylemler. */
   actions?: ReactNode;
 }

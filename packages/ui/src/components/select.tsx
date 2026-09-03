@@ -5,7 +5,7 @@ import { cn } from '../lib/cn.js';
 
 export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   invalid?: boolean;
-  ref?: Ref<HTMLSelectElement>;
+  ref?: Ref<HTMLSelectElement> | undefined;
 }
 
 /**

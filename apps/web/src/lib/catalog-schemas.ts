@@ -8,9 +8,22 @@ import { z } from 'zod';
  * `toDecimalString` ile noktaya çevrilir; hesap yapılmaz.
  */
 
-/** "12,50" → "12.50". Boş girdi boş string döner (isteğe bağlı alanlar için). */
+/**
+ * Türkçe sayı girişini API'nin beklediği ondalık string'e çevirir.
+ *
+ * - `"12,50"` → `"12.50"` (virgül = ondalık ayracı)
+ * - `"3.500,00"` → `"3500.00"` (nokta = binlik ayracı, YALNIZ virgül varken atılır)
+ * - `"1 250,50"` → `"1250.50"` (boşluklu binlik ayracı)
+ * - `"12.50"` → `"12.50"` (virgül yoksa nokta ondalık sayılır — İngilizce klavye alışkanlığı)
+ *
+ * Virgül yokken nokta ASLA atılmaz: `"3.500"` iki türlü okunabilir (3500 mü, 3,5 mi)
+ * ve sessizce 1000 katına çıkarmak, kuruş hatasından çok daha pahalıdır.
+ * Boş girdi boş string döner (isteğe bağlı alanlar için).
+ */
 export function toDecimalString(raw: string): string {
-  return raw.trim().replace(',', '.');
+  const trimmed = raw.trim().replace(/\s/g, '');
+  if (!trimmed.includes(',')) return trimmed;
+  return trimmed.replace(/\./g, '').replace(',', '.');
 }
 
 const money = z

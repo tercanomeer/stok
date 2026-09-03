@@ -4,7 +4,7 @@ import { cn } from '../lib/cn.js';
 
 export interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   invalid?: boolean;
-  ref?: Ref<HTMLTextAreaElement>;
+  ref?: Ref<HTMLTextAreaElement> | undefined;
 }
 
 export function Textarea({

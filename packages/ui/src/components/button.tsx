@@ -34,7 +34,7 @@ export interface ButtonProps
   extends ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
   /** Yükleniyor: spinner göster, tıklamayı kilitle. */
   loading?: boolean;
-  ref?: Ref<HTMLButtonElement>;
+  ref?: Ref<HTMLButtonElement> | undefined;
 }
 
 export function Button({

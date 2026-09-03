@@ -20,6 +20,15 @@ export function quantityDifference(counted: string, expected: string): string {
   return (diff / SCALE).toFixed(3).replace(/\.?0+$/, '') || '0';
 }
 
+/**
+ * `a + b`, 3 ondalığa kadar kayıpsız (alış önizlemesinde mevcut stok + girilen miktar).
+ * Gerçek stok yazımı sunucuda Decimal ile yapılır; bu yalnız önizleme.
+ */
+export function quantitySum(a: string, b: string): string {
+  const sum = toScaled(a) + toScaled(b);
+  return (sum / SCALE).toFixed(3).replace(/\.?0+$/, '') || '0';
+}
+
 /** Fark yönü: fazla / eksik / tam. */
 export function differenceTone(difference: string): 'success' | 'danger' | 'neutral' {
   const value = Number.parseFloat(difference);

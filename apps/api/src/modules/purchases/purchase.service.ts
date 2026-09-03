@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
 import { AuditAction, Prisma } from '@stokk/db';
+import { calculatePurchaseBreakdown, purchaseUnitCost, type PurchaseTotals } from '@stokk/pos-core';
 
 import {
   BusinessRuleError,
@@ -50,11 +51,11 @@ export class PurchaseService {
         throw new BusinessRuleError('NOT_A_SUPPLIER', 'Bu cari tedarikçi değil.');
       }
 
-      const computed = this.computeItems(input);
-      const subtotal = computed.reduce((a, c) => a.plus(c.lineTotal), new Prisma.Decimal(0));
-      const vatTotal = computed.reduce((a, c) => a.plus(c.vatAmount), new Prisma.Decimal(0));
-      const discountTotal = this.discountTotal(input, computed);
-      const grandTotal = subtotal.plus(vatTotal);
+      const { computed, totals } = this.computeItems(input);
+      const subtotal = new Prisma.Decimal(totals.subtotal);
+      const vatTotal = new Prisma.Decimal(totals.vatTotal);
+      const discountTotal = new Prisma.Decimal(totals.discountTotal);
+      const grandTotal = new Prisma.Decimal(totals.grandTotal);
 
       const created = await tx.purchase.create({
         data: {
@@ -98,8 +99,10 @@ export class PurchaseService {
 
         const currentQty = new Prisma.Decimal(locked[0].stockQuantity);
         const currentAvg = new Prisma.Decimal(locked[0].averageCost);
-        // Birim maliyet = iskonto sonrası satır matrahı / miktar (KDV hariç).
-        const unitCost = item.lineTotal.div(item.quantity);
+        // Birim maliyet = iskonto sonrası satır matrahı / miktar (KDV hariç) — pos-core.
+        const unitCost = new Prisma.Decimal(
+          purchaseUnitCost(item.lineTotal.toString(), item.quantity.toString()),
+        );
         const newAvg = this.weightedAverage(currentQty, currentAvg, item.quantity, unitCost);
 
         const { lowStock } = await this.stock.applyMovement(tx, tenantId, {
@@ -286,35 +289,36 @@ export class PurchaseService {
   }
 
   // --- Hesaplama ---
-  private computeItems(input: CreatePurchaseInput): ComputedItem[] {
-    return input.items.map((item) => {
-      const quantity = new Prisma.Decimal(item.quantity);
-      const unitPrice = new Prisma.Decimal(item.unitPrice);
-      const discountRate = new Prisma.Decimal(item.discountRate ?? '0');
-      const gross = quantity.mul(unitPrice);
-      const lineTotal = gross
-        .mul(new Prisma.Decimal(1).minus(discountRate.div(100)))
-        .toDecimalPlaces(2);
-      const vatAmount = lineTotal.mul(new Prisma.Decimal(item.vatRate).div(100)).toDecimalPlaces(2);
-      return {
+  /**
+   * Satır ve toplam hesabı `@stokk/pos-core`'da (CLAUDE.md: ikinci implementasyon yok).
+   * Web alış ekranı toplamları AYNI fonksiyonla gösterir; burada yalnız string sonuçlar
+   * Prisma.Decimal'e çevrilir.
+   */
+  private computeItems(input: CreatePurchaseInput): {
+    computed: ComputedItem[];
+    totals: PurchaseTotals;
+  } {
+    const breakdown = calculatePurchaseBreakdown({
+      lines: input.items.map((item) => ({
         productId: item.productId,
-        quantity,
-        unitPrice,
-        discountRate,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
         vatRate: item.vatRate,
-        lineTotal,
-        vatAmount,
-      };
+        ...(item.discountRate === undefined ? {} : { discountRate: item.discountRate }),
+      })),
     });
-  }
 
-  private discountTotal(input: CreatePurchaseInput, computed: ComputedItem[]): Prisma.Decimal {
-    return input.items.reduce((acc, item, i) => {
-      const quantity = new Prisma.Decimal(item.quantity);
-      const unitPrice = new Prisma.Decimal(item.unitPrice);
-      const gross = quantity.mul(unitPrice);
-      return acc.plus(gross.minus(computed[i]!.lineTotal));
-    }, new Prisma.Decimal(0));
+    const computed = breakdown.lines.map((line) => ({
+      productId: line.productId,
+      quantity: new Prisma.Decimal(line.quantity),
+      unitPrice: new Prisma.Decimal(line.unitPrice),
+      discountRate: new Prisma.Decimal(line.discountRate),
+      vatRate: line.vatRate,
+      lineTotal: new Prisma.Decimal(line.lineTotal),
+      vatAmount: new Prisma.Decimal(line.vatAmount),
+    }));
+
+    return { computed, totals: breakdown.totals };
   }
 
   /** newAvg = (qty0*avg0 + qtyIn*costIn) / (qty0 + qtyIn). qty0<=0 ise costIn. */
