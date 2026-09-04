@@ -205,6 +205,28 @@ export class CashSessionService {
     );
   }
 
+  /**
+   * Bir kasadaki AÇIK vardiya. POS vardiya açılış ekranı bunu sorar: kasiyerde
+   * `cash-session.view-all` yetkisi yok (tüm vardiyaları göremez) ama kendi kasasında
+   * açık vardiya olup olmadığını bilmek zorunda — yoksa her açılışta 409'a çarpar ve
+   * devam eden vardiyaya katılamaz.
+   */
+  async findOpenByRegister(registerId: string) {
+    return this.prisma.withTenant((tx) =>
+      tx.cashSession.findFirst({
+        where: { registerId, status: 'OPEN' },
+        select: {
+          id: true,
+          registerId: true,
+          userId: true,
+          status: true,
+          openingAmount: true,
+          openedAt: true,
+        },
+      }),
+    );
+  }
+
   async findOne(id: string) {
     const session = await this.prisma.withTenant((tx) =>
       tx.cashSession.findFirst({

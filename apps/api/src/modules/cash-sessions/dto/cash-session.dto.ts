@@ -10,6 +10,8 @@ export const openSessionSchema = z
   })
   .strict();
 
+export const currentSessionQuerySchema = z.object({ registerId: z.string().min(1) }).strict();
+
 export const closeSessionSchema = z
   .object({
     closingAmount: money,
@@ -26,5 +28,6 @@ export const cashMovementSchema = z
   .strict();
 
 export type OpenSessionInput = z.infer<typeof openSessionSchema>;
+export type CurrentSessionQuery = z.infer<typeof currentSessionQuerySchema>;
 export type CloseSessionInput = z.infer<typeof closeSessionSchema>;
 export type CashMovementInput = z.infer<typeof cashMovementSchema>;

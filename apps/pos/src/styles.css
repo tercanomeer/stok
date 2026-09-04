@@ -1,0 +1,17 @@
+@import 'tailwindcss';
+@import '@stokk/ui/styles.css';
+
+/* Tailwind 4 otomatik içerik taraması node_modules'a (pnpm symlink) girmez.
+   Bu satır olmadan @stokk/ui component'lerinin class'ları production build'de purge edilir. */
+@source '../../../packages/ui/src';
+
+/* Kasa PC'si: metin seçimi kazara sürüklemeye yol açıyor, kapatıldı; giriş alanları hariç. */
+body {
+  user-select: none;
+  overscroll-behavior: none;
+}
+
+input,
+textarea {
+  user-select: text;
+}

@@ -3,8 +3,10 @@
   "compilerOptions": {
     "types": ["react", "react-dom", "vite/client"],
     "noEmit": true,
-    "rootDir": "src"
+    // Renderer ile main process arasındaki tip sözleşmesi tek dosyada durur; renderer
+    // ondan YALNIZ tip alır (`import type`), derlemede hiçbir main kodu paketlenmez.
+    "paths": { "@shared/*": ["./electron/shared/*"] }
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "include": ["src/**/*.ts", "src/**/*.tsx", "electron/shared/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }

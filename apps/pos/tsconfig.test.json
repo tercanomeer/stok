@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  // Test dosyaları derleme çıktısına girmez (tsconfig.main.json onları dışlar),
+  // ama tip kontrolünden de kaçmamalı — bu config yalnız onları kontrol eder.
+  "extends": "@stokk/config/tsconfig/electron-main",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node", "electron"],
+    "paths": { "@shared/*": ["./electron/shared/*"] }
+  },
+  "include": [
+    "electron/**/*.spec.ts",
+    "src/**/*.spec.ts",
+    "src/lib/boot-flow.ts",
+    "vitest.config.mts"
+  ],
+  "exclude": ["node_modules", "dist", "dist-electron"]
+}

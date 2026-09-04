@@ -1,8 +1,12 @@
 import { defineConfig, devices } from '@playwright/test';
 
 /**
- * Faz 0: projeler tanımlı, test dizinleri boş.
- * Web akışları Faz 8'den, Electron akışları Faz 12'den itibaren doldurulur.
+ * `pos` projesi Electron sürücüsüyle çalışır: kendi tarayıcısını açtığı için
+ * `devices[...]` almaz ve tek tek koşar — iki Electron örneği aynı kasa verisine
+ * dokunursa testler birbirini bozar.
+ *
+ * Önkoşul (pos): `pnpm --filter @stokk/pos build` + ayakta API. API yoksa testler
+ * atlanır.
  */
 export default defineConfig({
   testDir: './e2e',
@@ -24,7 +28,10 @@ export default defineConfig({
     {
       name: 'pos',
       testDir: './e2e/pos',
-      // Electron driver'ı Faz 12'de bağlanır; şimdilik yalnız proje tanımı.
+      fullyParallel: false,
+      workers: 1,
+      // Electron açılışı + tam katalog çekişi 5 sn'yi rahat aşıyor.
+      timeout: 180_000,
     },
   ],
 });

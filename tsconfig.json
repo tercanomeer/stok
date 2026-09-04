@@ -6,6 +6,9 @@
   "compilerOptions": {
     "module": "ESNext",
     "moduleResolution": "bundler",
+    // Playwright'ın `page.evaluate` geri çağrıları tarayıcı bağlamında koşar;
+    // tip kontrolü için DOM tiplerine ihtiyaç var.
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "types": ["node"],
     "noEmit": true
   },

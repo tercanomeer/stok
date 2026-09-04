@@ -10,9 +10,11 @@ import type { AuthenticatedUser } from '../auth/auth.service.js';
 import {
   cashMovementSchema,
   closeSessionSchema,
+  currentSessionQuerySchema,
   openSessionSchema,
   type CashMovementInput,
   type CloseSessionInput,
+  type CurrentSessionQuery,
   type OpenSessionInput,
 } from './dto/cash-session.dto.js';
 
@@ -24,6 +26,13 @@ export class CashSessionsController {
   @Permissions(PERMISSIONS.CASH_SESSION_VIEW_ALL)
   list(@Query('status') status?: 'OPEN' | 'CLOSED') {
     return this.sessions.list(status === 'OPEN' || status === 'CLOSED' ? status : undefined);
+  }
+
+  /** POS vardiya açılışı: seçilen kasada açık vardiya var mı? Yoksa `null`. */
+  @Get('current')
+  @Permissions(PERMISSIONS.CASH_SESSION_OPEN)
+  current(@Query(new ZodValidationPipe(currentSessionQuerySchema)) query: CurrentSessionQuery) {
+    return this.sessions.findOpenByRegister(query.registerId);
   }
 
   @Get(':id')

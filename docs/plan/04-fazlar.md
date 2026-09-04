@@ -476,16 +476,16 @@ pnpm test --filter @stokk/api
 
 ### Yapılacak işler
 
-- [ ] Electron + Vite + React kurulumu; main / preload / renderer ayrımı
-- [ ] Sertleştirme: `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`, preload'da yalnız beyaz listeli IPC kanalları
-- [ ] IPC kanalları: `auth`, `sync`, `printer`, `scale`, `posDevice`, `cashDrawer`, `system` (donanım olanları Faz 14'te doldurulacak stub)
-- [ ] better-sqlite3 şeması (WAL): cache tabloları + `local_sales`, `sync_queue`, `sessions`
-- [ ] Sync servisi: açılışta full pull, sonra `since` ile delta, 30 sn arka plan döngüsü, kuyruk push, exponential backoff, kalıcı hata kuyruğu
-- [ ] Ağ durumu izleme (online/offline + `/health` ping) ve topbar göstergesi
-- [ ] Token saklama: `electron.safeStorage`; offline giriş yolu
-- [ ] Ekran akışı: splash → sunucu kurulumu (URL) → giriş → kasa seçimi → vardiya açılış
-- [ ] Paketleme: `electron-builder` ile Windows MSI + portable; `electron-updater` ile otomatik güncelleme
-- [ ] Renderer'ın doğrudan HTTP atmaması: tüm istekler main process üzerinden
+- [x] Electron + Vite + React kurulumu; main / preload / renderer ayrımı
+- [x] Sertleştirme: `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true`, preload'da yalnız beyaz listeli IPC kanalları
+- [x] IPC kanalları: `auth`, `sync`, `printer`, `scale`, `posDevice`, `cashDrawer`, `system` (donanım olanları Faz 14'te doldurulacak stub) — ayrıca `shift` (kasa seçimi + vardiya açılışı, ekran akışının gereği)
+- [x] better-sqlite3 şeması (WAL): cache tabloları + `local_sales`, `sync_queue`, `sessions`
+- [x] Sync servisi: açılışta full pull, sonra `since` ile delta, 30 sn arka plan döngüsü, kuyruk push, exponential backoff, kalıcı hata kuyruğu
+- [x] Ağ durumu izleme (online/offline + `/health` ping) ve topbar göstergesi
+- [x] Token saklama: `electron.safeStorage`; offline giriş yolu
+- [x] Ekran akışı: splash → sunucu kurulumu (URL) → giriş → kasa seçimi → vardiya açılış
+- [~] Paketleme: `electron-builder` ile Windows MSI + portable; `electron-updater` ile otomatik güncelleme — yapılandırma tamam, MSI temiz bir Windows'ta HENÜZ denenmedi (macOS geliştirme ortamı); güncelleme feed adresi `STOKK_UPDATE_URL` ile çalışma anında verilir
+- [x] Renderer'ın doğrudan HTTP atmaması: tüm istekler main process üzerinden
 
 ### Kullanılacak ajanlar
 

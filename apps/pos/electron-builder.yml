@@ -1,18 +1,41 @@
+# Windows paketleme. Kasa PC'lerinde iki kurulum biçimi gerekiyor:
+#  - msi      : kurumsal/çok şubeli kurulumlarda sessiz dağıtım (msiexec /qn)
+#  - portable : tek dosya, kurulum yetkisi olmayan makinelerde USB'den çalıştırma
 appId: com.stokk.pos
 productName: Stokk POS
 directories:
   output: release
   buildResources: build
+# `files` verildiğinde electron-builder varsayılan desenin YERİNE bunu kullanır;
+# node_modules yazılmazsa better-sqlite3 pakete girmez ve uygulama açılışta çöker.
 files:
   - dist/**
   - dist-electron/**
+  - node_modules/**
   - package.json
+# Native binding asar arşivinin İÇİNDEN yüklenemez (dlopen gerçek bir dosya yolu ister).
+asarUnpack:
+  - '**/node_modules/better-sqlite3/**'
+# better-sqlite3 N-API (napi=10) ile derlenir; binding Node ABI'sine DEĞİL N-API
+# sürümüne bağlıdır, bu yüzden Electron için ayrı bir derlemeye gerek yoktur.
+# Ayar yine de açık: ileride ABI'ye bağlı bir native modül eklenirse sessizce
+# bozuk paket üretmesin.
+npmRebuild: true
 win:
   target:
-    - nsis
+    - msi
     - portable
   artifactName: '${productName}-${version}-${arch}.${ext}'
-nsis:
+msi:
   oneClick: false
-  allowToChangeInstallationDirectory: true
+  perMachine: true
+  runAfterFinish: true
+portable:
+  artifactName: '${productName}-${version}-portable.${ext}'
+# Yayın kanalı (electron-updater feed) çalışma anında STOKK_UPDATE_URL ile verilir;
+# yayın altyapısı kurulmadan buraya sabit adres yazmak, var olmayan bir sunucuya
+# sürekli istek atan kurulumlar üretirdi.
+extraMetadata:
+  dependencies:
+    electron-updater: 6.8.9
 publish: null
