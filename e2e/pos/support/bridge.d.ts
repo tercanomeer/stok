@@ -27,6 +27,14 @@ interface PosSyncStatus {
   lastError: string | null;
 }
 
+interface PosCatalogProduct {
+  id: string;
+  name: string;
+  salePrice: string;
+  vatRate: number;
+  barcodes: string[];
+}
+
 interface PosBridge {
   system: {
     appInfo(): Promise<PosIpcResult<{ appVersion: string; platform: string }>>;
@@ -36,6 +44,12 @@ interface PosBridge {
   };
   sync: {
     status(): Promise<PosIpcResult<PosSyncStatus>>;
+  };
+  catalog: {
+    search(query: string): Promise<PosIpcResult<PosCatalogProduct[]>>;
+  };
+  sale: {
+    parked(): Promise<PosIpcResult<{ id: string; label: string }[]>>;
   };
   printer: {
     status(): Promise<PosIpcResult<{ connected: boolean; detail: string }>>;

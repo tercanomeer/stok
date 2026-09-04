@@ -67,6 +67,24 @@ const bridge: StokkBridge = {
     selectRegister: (input) => invoke('shift:select-register', input),
     current: () => invoke('shift:current'),
     open: (input) => invoke('shift:open', input),
+    close: (input) => invoke('shift:close', input),
+  },
+  catalog: {
+    settings: () => invoke('catalog:settings'),
+    search: (query) => invoke('catalog:search', { query }),
+    scan: (barcode) => invoke('catalog:scan', { barcode }),
+  },
+  sale: {
+    submit: (draft) => invoke('sale:submit', draft),
+    park: (input) => invoke('sale:park', input),
+    parked: () => invoke('sale:parked'),
+    unpark: (id) => invoke('sale:unpark', { id }),
+    discardParked: (id) => invoke('sale:discard-parked', { id }),
+    recent: (search) => invoke('sale:recent', { query: search }),
+    return: (input) => invoke('sale:return', input),
+  },
+  contacts: {
+    search: (query) => invoke('contacts:search', { query }),
   },
   printer: {
     status: () => invoke('printer:status'),

@@ -47,12 +47,19 @@ export class SyncService {
         },
         orderBy: { updatedAt: 'asc' },
       });
+      // POS satış ekranının çevrimdışıyken de ihtiyaç duyduğu ayarlar. MALİYET
+      // ALANI YOK ve olmayacak: kasa PC'si çalınırsa alış fiyatı sızmamalı.
       const settings = await tx.tenantSettings.findFirst({
         select: {
           vatRates: true,
           defaultVatRate: true,
           scaleBarcodePrefixes: true,
           currency: true,
+          // İndirim yetkisi kapısı kasada da uygulanır; sunucu yine doğrular.
+          highDiscountThreshold: true,
+          negativeStockPolicy: true,
+          receiptHeader: true,
+          receiptFooter: true,
         },
       });
       return { serverTime: new Date().toISOString(), products, settings };

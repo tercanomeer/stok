@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import { migrate, openDatabase, readMeta, writeMeta } from './database';
+import { MIGRATIONS } from './schema';
 
 describe('yerel depo', () => {
   it('şemayı kurar ve migration sürümünü işaretler', () => {
     const db = openDatabase(':memory:');
-    expect(db.pragma('user_version', { simple: true })).toBe(1);
+    // Sürüm, uygulanan migration SAYISIDIR; listeye yeni madde eklendikçe artar.
+    expect(db.pragma('user_version', { simple: true })).toBe(MIGRATIONS.length);
 
     const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
@@ -20,6 +22,7 @@ describe('yerel depo', () => {
       'local_payments',
       'sync_queue',
       'sessions',
+      'parked_sales',
       'meta',
     ]) {
       expect(names).toContain(expected);
@@ -30,7 +33,7 @@ describe('yerel depo', () => {
   it('ikinci kez çalıştırıldığında hiçbir şey yapmaz', () => {
     const db = openDatabase(':memory:');
     expect(() => migrate(db)).not.toThrow();
-    expect(db.pragma('user_version', { simple: true })).toBe(1);
+    expect(db.pragma('user_version', { simple: true })).toBe(MIGRATIONS.length);
     db.close();
   });
 

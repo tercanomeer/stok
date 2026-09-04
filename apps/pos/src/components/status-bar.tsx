@@ -12,6 +12,8 @@ interface StatusBarProps {
   update: UpdateStatus;
   onSyncNow: () => void;
   onLogout: () => void;
+  /** Gönderilemeyen satış listesini açar. */
+  onShowFailed: () => void;
 }
 
 function networkBadge(network: NetworkStatus): ReactElement {
@@ -50,6 +52,7 @@ export function StatusBar({
   update,
   onSyncNow,
   onLogout,
+  onShowFailed,
 }: StatusBarProps): ReactElement {
   return (
     <header className="border-border bg-surface-raised flex items-center gap-3 border-b px-4 py-2">
@@ -66,8 +69,12 @@ export function StatusBar({
         </Badge>
       ) : null}
 
+      {/* Rozet sayı göstermekle kalmaz, çözüme GÖTÜRÜR: o satışların parası
+          alınmış ama sunucuya işlenmemiştir, kasiyerin müdahale edebilmesi gerekir. */}
       {sync.failedCount > 0 ? (
-        <Badge tone="danger">{sync.failedCount} satış gönderilemedi</Badge>
+        <Button variant="ghost" size="sm" onClick={onShowFailed}>
+          <Badge tone="danger">{sync.failedCount} satış gönderilemedi</Badge>
+        </Button>
       ) : null}
 
       {update.phase === 'ready' ? (

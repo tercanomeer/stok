@@ -206,6 +206,47 @@ describe('POS kuyruk gönderimi — tek kopya garantisi', () => {
   });
 });
 
+describe('stok takibi kapalı ürün', () => {
+  it('takipsiz kalem satışın TAMAMINI düşürmez', async () => {
+    // `stock.applyMovement` takipsiz üründe hata verir; satış akışı bu kalemleri
+    // atlamazsa hizmet kalemi içeren her satış tamamen başarısız olurdu.
+    const service = await request(server)
+      .post('/products')
+      .set(auth())
+      .send({
+        name: 'Poşet (takipsiz)',
+        unitId,
+        salePrice: '2.00',
+        vatRate: 20,
+        trackStock: false,
+        barcodes: [`869${String(barcodeCounter++).padStart(10, '0')}`],
+      })
+      .expect(201);
+    const serviceId = (service.body as Envelope<{ id: string }>).data.id;
+    const trackedId = await createProduct('Takipli Ürün', '10.00');
+
+    const created = await request(server)
+      .post('/sales')
+      .set(auth())
+      .send({
+        cashSessionId: sessionId,
+        lines: [
+          { productId: trackedId, quantity: '1', unitPrice: '10.00', vatRate: 20 },
+          { productId: serviceId, quantity: '1', unitPrice: '2.00', vatRate: 20 },
+        ],
+        payments: [{ method: 'CASH', amount: '12.00' }],
+      })
+      .expect(201);
+    expect((created.body as Envelope<{ receiptNo: string }>).data.receiptNo).toBeTruthy();
+
+    // Takipli ürünün stoğu düştü, takipsiz ürüne hareket YAZILMADI.
+    const tracked = await request(server).get(`/products/${trackedId}`).set(auth()).expect(200);
+    expect(Number((tracked.body as Envelope<{ stockQuantity: string }>).data.stockQuantity)).toBe(
+      499,
+    );
+  });
+});
+
 describe('POS katalog çekişi', () => {
   it('maliyet alanı DÖNMEZ — kasa PC’sinden maliyet sızmaz', async () => {
     await createProduct('Maliyetli Ürün', '30.00');
@@ -234,6 +275,28 @@ describe('POS katalog çekişi', () => {
     expect(typeof data.products[0]?.salePrice).toBe('string');
     expect(data.products[0]?.barcodes.length).toBeGreaterThan(0);
     expect(data.settings).not.toBeNull();
+  });
+
+  it('satış ekranının ihtiyaç duyduğu ayarları taşır', async () => {
+    // Kasa çevrimdışıyken de indirim kapısını uygulamak ve fiş basmak zorunda;
+    // bu alanlar olmadan POS eşiği bilemez ve fişin başlığı boş çıkar.
+    const pull = await request(server).get('/sync/pull').set(auth()).expect(200);
+    const settings = (
+      pull.body as Envelope<{
+        settings: {
+          highDiscountThreshold: string;
+          negativeStockPolicy: string;
+          receiptHeader: string | null;
+          receiptFooter: string | null;
+        } | null;
+      }>
+    ).data.settings;
+
+    expect(settings).not.toBeNull();
+    expect(typeof settings?.highDiscountThreshold).toBe('string');
+    expect(['ALLOW', 'WARN', 'BLOCK']).toContain(settings?.negativeStockPolicy);
+    expect(settings).toHaveProperty('receiptHeader');
+    expect(settings).toHaveProperty('receiptFooter');
   });
 
   it('since ile delta çekiş yalnız değişeni döner', async () => {

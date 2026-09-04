@@ -2,6 +2,7 @@ export * from './contracts';
 export * from './sale-calc';
 export * from './purchase-calc';
 export * from './change';
+export * from './payment';
 export * from './scale-barcode';
 export { PosCoreError } from './money';
 

@@ -5,10 +5,13 @@ import { app, net } from 'electron';
 import { openDatabase, type PosDatabase } from './db/database';
 import { ApiClient } from './services/api-client';
 import { AuthService } from './services/auth-service';
+import { CatalogService } from './services/catalog-service';
 import { ConfigStore } from './services/config-store';
+import { ContactService } from './services/contact-service';
 import { electronCipher } from './services/electron-cipher';
 import { electronUpdateEngine } from './services/electron-update-engine';
 import { NetworkMonitor } from './services/network-monitor';
+import { SaleService } from './services/sale-service';
 import { SessionTokenStore } from './services/secure-store';
 import { ShiftService } from './services/shift-service';
 import { SyncService } from './services/sync-service';
@@ -24,6 +27,9 @@ export interface AppContext {
   network: NetworkMonitor;
   sync: SyncService;
   shift: ShiftService;
+  catalog: CatalogService;
+  sale: SaleService;
+  contacts: ContactService;
   updater: UpdaterService;
   dispose(): void;
 }
@@ -51,7 +57,6 @@ export function createAppContext(): AppContext {
 
   const auth = new AuthService({ db, api, tokens, config });
   authRef = auth;
-  const shift = new ShiftService(api, config);
 
   const network = new NetworkMonitor({
     isOnline: () => net.isOnline(),
@@ -65,7 +70,19 @@ export function createAppContext(): AppContext {
     },
   });
 
+  const shift = new ShiftService(api, config, db, () => network.isOnline);
   const sync = new SyncService({ db, api, isOnline: () => network.isOnline });
+  const catalog = new CatalogService(db);
+  const sale = new SaleService({
+    db,
+    api,
+    auth,
+    shift,
+    sync,
+    config,
+    isOnline: () => network.isOnline,
+  });
+  const contacts = new ContactService(api, () => network.isOnline);
   const updater = new UpdaterService(app.isPackaged, electronUpdateEngine);
 
   // Ağ geri geldiğinde 30 sn'lik turu BEKLEME: kuyruk hemen boşalsın.
@@ -94,6 +111,9 @@ export function createAppContext(): AppContext {
     network,
     sync,
     shift,
+    catalog,
+    sale,
+    contacts,
     updater,
     dispose: () => {
       stopNetworkWatch();

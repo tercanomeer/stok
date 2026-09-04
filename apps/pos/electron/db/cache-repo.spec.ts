@@ -84,7 +84,16 @@ describe('katalog önbelleği', () => {
   it('ayarları ve çekiş imlecini saklar', () => {
     saveSettings(
       db,
-      { vatRates: [1, 10, 20], defaultVatRate: 20, scaleBarcodePrefixes: ['27'], currency: 'TRY' },
+      {
+        vatRates: [1, 10, 20],
+        defaultVatRate: 20,
+        scaleBarcodePrefixes: ['27'],
+        currency: 'TRY',
+        highDiscountThreshold: '10.00',
+        negativeStockPolicy: 'WARN',
+        receiptHeader: null,
+        receiptFooter: null,
+      },
       '2026-09-03T09:00:00.000Z',
     );
     expect(readSettings(db)?.defaultVatRate).toBe(20);

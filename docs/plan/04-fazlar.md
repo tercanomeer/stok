@@ -516,15 +516,16 @@ pnpm test --filter @stokk/api
 
 ### Yapılacak işler
 
-- [ ] Ana layout: barkod girişi, kategori/ürün gridi, sepet, toplam paneli, topbar, park listesi
-- [ ] Klavye kısayolları: F1–F10 (ödeme, müşteri, indirim, park, iade, tartı, vardiya kapat), ESC, `+`/`−`
-- [ ] Barkod algılama: 150 ms sessizlik = barkod tamamlandı; odak her zaman barkod alanına döner
-- [ ] Terazi barkodu ayrıştırma (ağırlık/fiyat gömülü barkod desenleri, tenant ayarından prefix)
-- [ ] Sepet state (Zustand) + tüm hesap `@stokk/pos-core` üzerinden — POS'ta ayrı formül yazılmaz
-- [ ] Ödeme modalı: parçalı ödeme, hızlı nakit butonları, kart, para üstü, veresiye
-- [ ] Yardımcı modallar: müşteri seçimi, indirim (yetki kontrollü), satır notu, park edilmiş satışlar, iade
-- [ ] Satış gönderimi: online → API, offline → yerel kuyruk; her iki yolda da fiş verisi üretilir
-- [ ] Satış sonrası: fiş önizleme / yazdırma (Faz 14'te gerçek yazıcıya bağlanacak)
+- [x] Ana layout: barkod girişi, kategori/ürün gridi, sepet, toplam paneli, topbar, park listesi
+- [x] Klavye kısayolları: F1–F10 (ödeme, müşteri, indirim, park, iade, tartı, vardiya kapat), ESC, `+`/`−`
+- [x] Barkod algılama: 150 ms sessizlik = barkod tamamlandı; odak her zaman barkod alanına döner
+- [x] Terazi barkodu ayrıştırma (ağırlık/fiyat gömülü barkod desenleri, tenant ayarından prefix) — ağırlık yorumu uygulandı; fiyat gömen teraziler için mod ayarı Faz 14'e bırakıldı
+- [x] Sepet state (Zustand) + tüm hesap `@stokk/pos-core` üzerinden — POS'ta ayrı formül yazılmaz
+- [x] Ödeme modalı: parçalı ödeme, hızlı nakit butonları, kart, para üstü, veresiye
+- [x] Yardımcı modallar: müşteri seçimi, indirim (yetki kontrollü), satır notu, park edilmiş satışlar, iade
+- [x] Satış gönderimi: online → API, offline → yerel kuyruk; her iki yolda da fiş verisi üretilir — tek yol: önce yerele yaz, sonra gönder
+- [~] Satış sonrası: fiş önizleme / yazdırma — önizleme hazır; yazdırma kanalı Faz 14'e kadar `NOT_IMPLEMENTED`
+- [x] Gönderilemeyen satışlar ekranı (plan dışı, qa-expert bulgusu): reddedilen satışlar görünür ve tekrar denenebilir
 
 ### Kullanılacak ajanlar
 

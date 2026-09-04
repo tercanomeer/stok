@@ -3,7 +3,12 @@ import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 
 import { AuditAction, Prisma } from '@stokk/db';
-import { calculateRefundAmount, calculateSaleBreakdown, type SaleBreakdown } from '@stokk/pos-core';
+import {
+  calculateRefundAmount,
+  calculateSaleBreakdown,
+  maxEffectiveDiscountRate,
+  type SaleBreakdown,
+} from '@stokk/pos-core';
 import { PERMISSIONS } from '@stokk/types';
 
 import { SequenceService } from './sequence.service.js';
@@ -269,7 +274,12 @@ export class SaleService {
       });
       if (claimed.count === 0) throw new ConflictError('Satış zaten iptal edilmiş.');
 
+      const trackedOnCancel = await this.trackedProductIds(
+        tx,
+        sale.items.map((item) => item.productId),
+      );
       for (const item of sale.items) {
+        if (!trackedOnCancel.has(item.productId)) continue;
         await this.stock.applyMovement(tx, tenantId, {
           productId: item.productId,
           type: 'SALE_RETURN',
@@ -406,8 +416,13 @@ export class SaleService {
         select: { id: true },
       });
 
+      const trackedOnReturn = await this.trackedProductIds(
+        tx,
+        returnLines.map((l) => l.item.productId),
+      );
       const lowStock: (StockLowEvent | null)[] = [];
       for (const l of returnLines) {
+        if (!trackedOnReturn.has(l.item.productId)) continue;
         const { lowStock: low } = await this.stock.applyMovement(tx, tenantId, {
           productId: l.item.productId,
           type: 'SALE_RETURN',
@@ -741,14 +756,9 @@ export class SaleService {
     breakdown: SaleBreakdown,
     user: AuthenticatedUser,
   ): Promise<void> {
-    let maxEffective = new Prisma.Decimal(0);
-    for (const line of breakdown.lines) {
-      const discount = new Prisma.Decimal(line.discountAmount);
-      const gross = new Prisma.Decimal(line.lineTotal).plus(discount); // KDV dahil, indirim öncesi
-      if (gross.lessThanOrEqualTo(0)) continue;
-      const effective = discount.div(gross).mul(100);
-      if (effective.greaterThan(maxEffective)) maxEffective = effective;
-    }
+    // Oranın kendisi pos-core'da hesaplanır: kasa da aynı kapıyı çevrimdışı
+    // uyguluyor, iki tarafın farklı sayı görmesi kabul edilemez.
+    const maxEffective = new Prisma.Decimal(maxEffectiveDiscountRate(breakdown));
     if (maxEffective.lessThanOrEqualTo(0)) return;
 
     const settings = await tx.tenantSettings.findFirst({ select: { highDiscountThreshold: true } });
@@ -787,7 +797,14 @@ export class SaleService {
     }
 
     // Stok düşümü — productId sırasıyla (kilit sırası, deadlock önleme).
-    const ordered = [...breakdown.lines].sort((a, b) => (a.productId < b.productId ? -1 : 1));
+    // Takibi kapalı kalemler atlanır; bkz. `trackedProductIds`.
+    const tracked = await this.trackedProductIds(
+      tx,
+      breakdown.lines.map((line) => line.productId),
+    );
+    const ordered = [...breakdown.lines]
+      .filter((line) => tracked.has(line.productId))
+      .sort((a, b) => (a.productId < b.productId ? -1 : 1));
     const lowStock: (StockLowEvent | null)[] = [];
     for (const line of ordered) {
       const { lowStock: low } = await this.stock.applyMovement(tx, tenantId, {
@@ -818,6 +835,26 @@ export class SaleService {
     const receiptNo = String(await this.sequence.next(tx, tenantId, 'SALE'));
     await tx.sale.update({ where: { id: saleId }, data: { receiptNo } });
     return lowStock;
+  }
+
+  /**
+   * Verilen ürünlerden stok takibi AÇIK olanlar.
+   *
+   * `stock.applyMovement` takibi kapalı üründe `STOCK_NOT_TRACKED` fırlatır — bu, doğrudan
+   * stok uçları için doğru davranış (kimse takipsiz ürüne fire giremesin), ama satışta
+   * yanlış: hizmet kalemi ya da takipsiz bir ürün içeren satışın TAMAMI düşerdi.
+   * Satış/iptal/iade akışları bu yüzden takipsiz kalemleri stok hareketinden ATLAR.
+   */
+  private async trackedProductIds(
+    tx: TenantTransaction,
+    productIds: readonly string[],
+  ): Promise<Set<string>> {
+    if (productIds.length === 0) return new Set();
+    const rows = await tx.product.findMany({
+      where: { id: { in: [...new Set(productIds)] }, trackStock: true },
+      select: { id: true },
+    });
+    return new Set(rows.map((row) => row.id));
   }
 
   private async assertCreditWithinLimit(

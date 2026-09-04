@@ -125,4 +125,22 @@ export const MIGRATIONS: readonly string[] = [
     updated_at           TEXT NOT NULL
   );
   `,
+
+  // 2 — park edilmiş satışlar (Faz 13)
+  //
+  // Park YERELDİR, sunucuya gitmez: kasiyer müşteriyi bir kenara alıp sıradakine
+  // bakar, birkaç dakika sonra devam eder. Sunucudaki `POST /sales/park` bu iş için
+  // ağ gerektirirdi; internet kesikken park edememek kasada kabul edilemez.
+  // Yine de bellekte tutulmaz — uygulama çökerse bekleyen sepet kaybolmasın.
+  `
+  CREATE TABLE parked_sales (
+    id          TEXT PRIMARY KEY,
+    label       TEXT NOT NULL,
+    payload     TEXT NOT NULL,
+    item_count  INTEGER NOT NULL,
+    grand_total TEXT NOT NULL,
+    parked_at   TEXT NOT NULL
+  );
+  CREATE INDEX idx_parked_sales_parked_at ON parked_sales(parked_at);
+  `,
 ];

@@ -94,3 +94,45 @@ export async function addProduct(tenant: TestTenant, name: string): Promise<stri
   });
   return product.id;
 }
+
+/** Sunucudaki satışlar — "tek kopya" doğrulaması bunun üzerinden yapılır. */
+export interface ServerSale {
+  id: string;
+  receiptNo: string | null;
+  grandTotal: string;
+  clientSaleId?: string | null;
+}
+
+export async function listSales(tenant: TestTenant): Promise<ServerSale[]> {
+  const page = await call<{ items: ServerSale[] }>('/sales?limit=50&sort=soldAt:desc', {
+    token: tenant.token,
+  });
+  return page.items;
+}
+
+/** Ürünü barkoduyla birlikte döner — satış ekranı barkodu okutabilsin. */
+export async function seedBarcodedProduct(
+  tenant: TestTenant,
+  name: string,
+  salePrice: string,
+  barcode: string,
+): Promise<{ id: string; barcode: string }> {
+  const product = await call<{ id: string }>('/products', {
+    method: 'POST',
+    token: tenant.token,
+    body: { name, unitId: tenant.unitId, salePrice, vatRate: 20, barcodes: [barcode] },
+  });
+  return { id: product.id, barcode };
+}
+
+/** Tenant ayarındaki terazi barkodu prefix'lerini günceller. */
+export async function setScalePrefixes(
+  tenant: TestTenant,
+  prefixes: readonly string[],
+): Promise<void> {
+  await call('/settings', {
+    method: 'PATCH',
+    token: tenant.token,
+    body: { scaleBarcodePrefixes: [...prefixes] },
+  });
+}

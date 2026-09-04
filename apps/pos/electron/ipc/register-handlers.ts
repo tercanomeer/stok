@@ -8,13 +8,23 @@ import { normalizeServerUrl } from '../services/config-store';
 import type {
   AppInfo,
   CashSession,
+  CatalogProduct,
+  CompletedSale,
+  ContactSummary,
   DeviceStatus,
   EventChannel,
   FailedSale,
   NetworkStatus,
+  ParkedSale,
   PosConfig,
   PosSession,
+  PosSettings,
+  RecentSale,
   Register,
+  ReturnResult,
+  SaleDraft,
+  ScanResult,
+  ShiftCloseResult,
   SyncRunResult,
   SyncStatus,
   UpdateStatus,
@@ -38,12 +48,91 @@ const openShiftSchema = z
   })
   .strict();
 
+const closeShiftSchema = z
+  .object({
+    closingAmount: z.string().regex(/^\d{1,10}(\.\d{1,2})?$/, 'Geçerli bir tutar girin.'),
+    note: z.string().max(300).optional(),
+  })
+  .strict();
+
 const selectRegisterSchema = z
   .object({ registerId: z.string().min(1).max(64), registerName: z.string().min(1).max(120) })
   .strict();
 
 const saleIdSchema = z.object({ saleId: z.string().min(1).max(64) }).strict();
 const amountSchema = z.object({ amount: z.string().min(1).max(20) }).strict();
+
+// --- satış ekranı şemaları ---------------------------------------------------
+// Renderer güvenilmez taraftır: kanaldan geçen her şey burada strict doğrulanır.
+
+const querySchema = z.object({ query: z.string().max(120) }).strict();
+const barcodeSchema = z.object({ barcode: z.string().trim().min(1).max(64) }).strict();
+const idSchema = z.object({ id: z.string().min(1).max(64) }).strict();
+
+const money = z.string().regex(/^\d{1,10}(\.\d{1,2})?$/, 'Geçerli bir tutar girin.');
+const quantity = z.string().regex(/^\d{1,9}(\.\d{1,3})?$/, 'Geçerli bir miktar girin.');
+const rate = z.string().regex(/^\d{1,3}(\.\d{1,2})?$/, 'Geçerli bir oran girin.');
+
+const paymentsSchema = z
+  .array(
+    z
+      .object({
+        method: z.enum(['CASH', 'CARD', 'CREDIT', 'TRANSFER']),
+        amount: money,
+        receivedAmount: money.optional(),
+        reference: z.string().max(120).optional(),
+      })
+      .strict(),
+  )
+  .max(10);
+
+const saleDraftSchema = z
+  .object({
+    lines: z
+      .array(
+        z
+          .object({
+            productId: z.string().min(1).max(64),
+            name: z.string().min(1).max(200),
+            quantity,
+            unitPrice: money,
+            vatRate: z.number().int().min(0).max(100),
+            discountRate: rate.optional(),
+            note: z.string().max(200).optional(),
+          })
+          .strict(),
+      )
+      .min(1, 'En az bir kalem gerekli.')
+      .max(200),
+    payments: paymentsSchema.min(1, 'En az bir ödeme gerekli.'),
+    contactId: z.string().min(1).max(64).optional(),
+    contactName: z.string().max(200).optional(),
+    documentDiscountRate: rate.optional(),
+    note: z.string().max(500).optional(),
+  })
+  .strict();
+
+// Park edilen sepette henüz ödeme YOKTUR; ödeme listesi boş geçilebilir.
+// Not: `min(1)`'i `extend` ile gevşetmek işe yaramaz — Zod kontrolleri değiştirmez,
+// EKLER; bu yüzden kısıtsız `paymentsSchema` doğrudan kullanılıyor.
+const parkSchema = z
+  .object({
+    label: z.string().trim().min(1).max(60),
+    draft: saleDraftSchema.extend({ payments: paymentsSchema }),
+  })
+  .strict();
+
+const returnSchema = z
+  .object({
+    saleId: z.string().min(1).max(64),
+    refundMethod: z.enum(['CASH', 'CARD', 'CREDIT', 'TRANSFER']),
+    reason: z.string().trim().min(1).max(300),
+    items: z
+      .array(z.object({ saleItemId: z.string().min(1).max(64), quantity }).strict())
+      .min(1)
+      .max(200),
+  })
+  .strict();
 
 /** Faz 14'e kadar donanım kanallarının verdiği yanıt. */
 function offlineDevice(detail: string): DeviceStatus {
@@ -152,6 +241,60 @@ export function registerHandlers(context: AppContext, window: BrowserWindow): ()
         openingAmount: input.openingAmount,
         ...(input.note === undefined ? {} : { note: input.note }),
       }),
+  );
+
+  /**
+   * Vardiya kapanışı. Bekleyen satış sayısı RENDERER'DAN alınmaz — kuyruğun
+   * gerçek durumu main process'te, orada okunuyor.
+   */
+  defineHandler<z.infer<typeof closeShiftSchema>, ShiftCloseResult>(
+    'shift:close',
+    closeShiftSchema,
+    (input) =>
+      context.shift.close(
+        {
+          closingAmount: input.closingAmount,
+          ...(input.note === undefined ? {} : { note: input.note }),
+        },
+        context.sync.status().pendingCount,
+      ),
+  );
+
+  // --- catalog (tamamı yerel önbellekten) -----------------------------------
+  defineHandler<undefined, PosSettings | null>('catalog:settings', null, () =>
+    context.catalog.settings(),
+  );
+  defineHandler<{ query: string }, CatalogProduct[]>('catalog:search', querySchema, (input) =>
+    context.catalog.search(input.query),
+  );
+  defineHandler<{ barcode: string }, ScanResult>('catalog:scan', barcodeSchema, (input) =>
+    context.catalog.scan(input.barcode),
+  );
+
+  // --- sale -----------------------------------------------------------------
+  defineHandler<SaleDraft, CompletedSale>('sale:submit', saleDraftSchema, (input) =>
+    context.sale.submit(input),
+  );
+  defineHandler<z.infer<typeof parkSchema>, ParkedSale>('sale:park', parkSchema, (input) =>
+    context.sale.park(input),
+  );
+  defineHandler<undefined, ParkedSale[]>('sale:parked', null, () => context.sale.parked());
+  defineHandler<{ id: string }, SaleDraft>('sale:unpark', idSchema, (input) =>
+    context.sale.unpark(input.id),
+  );
+  defineHandler<{ id: string }, null>('sale:discard-parked', idSchema, (input) =>
+    context.sale.discard(input.id),
+  );
+  defineHandler<{ query: string }, RecentSale[]>('sale:recent', querySchema, (input) =>
+    context.sale.recent(input.query),
+  );
+  defineHandler<z.infer<typeof returnSchema>, ReturnResult>('sale:return', returnSchema, (input) =>
+    context.sale.submitReturn(input),
+  );
+
+  // --- contacts -------------------------------------------------------------
+  defineHandler<{ query: string }, ContactSummary[]>('contacts:search', querySchema, (input) =>
+    context.contacts.search(input.query),
   );
 
   // --- donanım (Faz 14) -----------------------------------------------------

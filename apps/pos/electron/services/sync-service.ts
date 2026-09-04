@@ -47,6 +47,12 @@ const pullResponseSchema = z.object({
       defaultVatRate: z.coerce.number(),
       scaleBarcodePrefixes: z.array(z.string()),
       currency: z.string(),
+      // Faz 13'te eklendi. Eski bir sunucuya bağlı kasa çekişi KAYBETMESİN diye
+      // varsayılanlı: eşik sunucudaki varsayılanla, politika en gevşek olanla aynı.
+      highDiscountThreshold: z.coerce.string().default('10.00'),
+      negativeStockPolicy: z.enum(['ALLOW', 'WARN', 'BLOCK']).default('WARN'),
+      receiptHeader: z.string().nullable().default(null),
+      receiptFooter: z.string().nullable().default(null),
     })
     .nullable(),
 });

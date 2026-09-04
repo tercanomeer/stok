@@ -2,7 +2,19 @@ import { z } from 'zod';
 
 import type { ApiClient } from './api-client';
 import type { ConfigStore } from './config-store';
-import type { CashSession, OpenShiftInput, PosConfig, Register } from '../shared/ipc-contracts';
+import { readMeta, writeMeta, type PosDatabase } from '../db/database';
+import { AppError } from '../lib/app-error';
+import type {
+  CashSession,
+  CloseShiftInput,
+  OpenShiftInput,
+  PosConfig,
+  Register,
+  ShiftCloseResult,
+} from '../shared/ipc-contracts';
+
+/** Açık vardiya yerelde de tutulur; bkz. `active`. */
+const ACTIVE_SHIFT_KEY = 'shift.active';
 
 const registerSchema = z.object({
   id: z.string(),
@@ -18,6 +30,16 @@ const cashSessionSchema = z.object({
   openedAt: z.string(),
 });
 
+const closeResultSchema = z.object({
+  session: z.object({
+    closingAmount: z.coerce.string(),
+    expectedAmount: z.coerce.string(),
+    differenceAmount: z.coerce.string(),
+    closedAt: z.string(),
+  }),
+  overThreshold: z.boolean(),
+});
+
 /**
  * Kasa seçimi ve vardiya açılışı — açılış akışının sunucuya dokunan kısmı.
  *
@@ -29,7 +51,29 @@ export class ShiftService {
   constructor(
     private readonly api: ApiClient,
     private readonly config: ConfigStore,
+    private readonly db: PosDatabase,
+    /** Vardiya kapanışı sunucuya yazılır; ağ yoksa hiç denenmez. */
+    private readonly isOnline: () => boolean = () => true,
   ) {}
+
+  /**
+   * Son bilinen açık vardiya — SATIŞ BUNA YAZILIR.
+   *
+   * `current()` sunucuya sorar; internet kesikken sorulamaz. Satış ise
+   * `cashSessionId` olmadan kaydedilemez. Bu yüzden vardiya açıldığında ya da
+   * sorgulandığında yerele yazılır ve çevrimdışı satış oradan okur. Kaynak yine
+   * sunucudur: her başarılı sorgu bu kaydı tazeler, vardiya kapanınca siler.
+   */
+  get active(): CashSession | null {
+    const raw = readMeta(this.db, ACTIVE_SHIFT_KEY);
+    if (!raw) return null;
+    const parsed = cashSessionSchema.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : null;
+  }
+
+  private remember(session: CashSession | null): void {
+    writeMeta(this.db, ACTIVE_SHIFT_KEY, session ? JSON.stringify(session) : '');
+  }
 
   async listRegisters(): Promise<Register[]> {
     const raw = await this.api.request<unknown>('/registers');
@@ -43,8 +87,13 @@ export class ShiftService {
     const raw = await this.api.request<unknown>('/cash-sessions/current', {
       query: { registerId },
     });
-    if (raw === null || raw === undefined) return null;
-    return cashSessionSchema.parse(raw);
+    if (raw === null || raw === undefined) {
+      this.remember(null);
+      return null;
+    }
+    const session = cashSessionSchema.parse(raw);
+    this.remember(session);
+    return session;
   }
 
   async open(input: OpenShiftInput): Promise<CashSession> {
@@ -58,7 +107,50 @@ export class ShiftService {
     });
     const session = cashSessionSchema.parse(raw);
     this.rememberRegister(input.registerId);
+    this.remember(session);
     return session;
+  }
+
+  /**
+   * Vardiyayı kapatır.
+   *
+   * Kapanış ÇEVRİMİÇİ yapılır: beklenen nakit sunucudaki kasa hareketlerinden
+   * çıkar, fark eşiği tenant ayarındadır ve kapanış denetim kaydı üretir. Kasada
+   * hesaplanan bir kapanış, gönderilmemiş satışlar yüzünden yanlış olurdu.
+   *
+   * Kuyrukta bekleyen satış varken kapanış ENGELLENİR: o satışlar sunucuya
+   * ulaşmadan beklenen nakit eksik hesaplanır ve kasiyer haksız yere "fark var"
+   * uyarısı alır.
+   */
+  async close(input: CloseShiftInput, pendingSales: number): Promise<ShiftCloseResult> {
+    if (!this.isOnline()) {
+      throw new AppError('OFFLINE', 'Vardiya kapatmak için internet bağlantısı gerekli.');
+    }
+    const session = this.active;
+    if (!session) throw new AppError('NO_SHIFT', 'Kapatılacak açık vardiya bulunamadı.');
+    if (pendingSales > 0) {
+      throw new AppError(
+        'PENDING_SALES',
+        `${String(pendingSales)} satış henüz sunucuya gönderilmedi; kapatmadan önce eşitleyin.`,
+      );
+    }
+
+    const raw = await this.api.request<unknown>(`/cash-sessions/${session.id}/close`, {
+      method: 'POST',
+      body: {
+        closingAmount: input.closingAmount,
+        ...(input.note === undefined ? {} : { note: input.note }),
+      },
+    });
+    const parsed = closeResultSchema.parse(raw);
+    this.remember(null);
+    return {
+      closingAmount: parsed.session.closingAmount,
+      expectedAmount: parsed.session.expectedAmount,
+      differenceAmount: parsed.session.differenceAmount,
+      overThreshold: parsed.overThreshold,
+      closedAt: parsed.session.closedAt,
+    };
   }
 
   /**

@@ -1,4 +1,5 @@
 import { type PosDatabase, readMeta, writeMeta } from './database';
+import type { PosSettings } from '../shared/ipc-contracts';
 
 /** Sunucudan gelen ürün aynasının POS'ta tutulan alanları. Para/miktar STRING. */
 export interface CachedProduct {
@@ -15,12 +16,7 @@ export interface CachedProduct {
 }
 
 /** POS'un ihtiyaç duyduğu tenant ayarları (sync/pull `settings` alanı). */
-export interface CachedSettings {
-  vatRates: number[];
-  defaultVatRate: number;
-  scaleBarcodePrefixes: string[];
-  currency: string;
-}
+export type CachedSettings = PosSettings;
 
 const PULL_CURSOR_KEY = 'sync.pullCursor';
 const LAST_PULL_KEY = 'sync.lastPullAt';

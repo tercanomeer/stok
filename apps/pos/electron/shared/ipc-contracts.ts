@@ -37,6 +37,21 @@ export const INVOKE_CHANNELS = [
   'shift:select-register',
   'shift:current',
   'shift:open',
+  'shift:close',
+  // catalog — satış ekranının ürün kaynağı; TAMAMI yerel önbellekten okunur
+  'catalog:settings',
+  'catalog:search',
+  'catalog:scan',
+  // sale — satış tamamlama, park ve iade (Faz 13)
+  'sale:submit',
+  'sale:park',
+  'sale:parked',
+  'sale:unpark',
+  'sale:discard-parked',
+  'sale:recent',
+  'sale:return',
+  // contacts — veresiye ve müşteri seçimi (sunucudan canlı arama)
+  'contacts:search',
   // donanım — gövdeleri Faz 14'te dolar
   'printer:status',
   'printer:print-receipt',
@@ -174,10 +189,199 @@ export interface CashSession {
   openedAt: string;
 }
 
+/**
+ * POS'un çevrimdışıyken de bilmesi gereken tenant ayarları — `/sync/pull` ile gelir,
+ * `settings_cache` içinde durur.
+ */
+export interface PosSettings {
+  vatRates: number[];
+  defaultVatRate: number;
+  /** Terazi barkodu prefix'leri; boşsa tartılı barkod ayrıştırması kapalı. */
+  scaleBarcodePrefixes: string[];
+  currency: string;
+  /** Bu oranın üzerindeki indirim `sale.discount.high` izni ister. */
+  highDiscountThreshold: string;
+  /** Stok yetersizken satışın engellenip engellenmediği. */
+  negativeStockPolicy: 'ALLOW' | 'WARN' | 'BLOCK';
+  receiptHeader: string | null;
+  receiptFooter: string | null;
+}
+
+/** Önbellekteki ürün — satış ekranı ürünü buradan alır, sunucuya sormaz. */
+export interface CatalogProduct {
+  id: string;
+  name: string;
+  /** Birim satış fiyatı — KDV DAHİL. */
+  salePrice: string;
+  vatRate: number;
+  stockQuantity: string;
+  trackStock: boolean;
+  unitId: string;
+  barcodes: string[];
+}
+
+/**
+ * Okutulan barkodun çözümü.
+ *
+ * `quantity` yalnız tartılı barkodda dolu gelir (etiketteki ağırlık); normal barkodda
+ * null'dır ve sepet 1 adet ekler.
+ */
+export interface ScanResult {
+  product: CatalogProduct | null;
+  /** Tartılı barkoddan okunan miktar (kg), yoksa null. */
+  quantity: string | null;
+  /** Barkod tartı deseniyle eşleşti mi — ürün bulunamasa da bilgi verir. */
+  scale: boolean;
+  barcode: string;
+}
+
 export interface OpenShiftInput {
   registerId: string;
   openingAmount: string;
   note?: string;
+}
+
+export interface CloseShiftInput {
+  /** Kasiyerin saydığı nakit. */
+  closingAmount: string;
+  note?: string;
+}
+
+/** Vardiya kapanış özeti — kasiyere sayım farkını gösterir. */
+export interface ShiftCloseResult {
+  closingAmount: string;
+  /** Sistemin beklediği nakit (açılış + nakit hareketleri). */
+  expectedAmount: string;
+  /** Sayılan − beklenen. Negatif = kasa eksik. */
+  differenceAmount: string;
+  /** Fark tenant eşiğini aşıyor mu — aşıyorsa yöneticiye rapor edilir. */
+  overThreshold: boolean;
+  closedAt: string;
+}
+
+// --- satış -------------------------------------------------------------------
+
+/**
+ * Sepetin bir satırı.
+ *
+ * İsteğe bağlı alanlar `| undefined` taşıyor: `exactOptionalPropertyTypes` altında
+ * "alan yok" ile "alan var, değeri undefined" ayrı tiplerdir ve Zod'un ürettiği
+ * çıktı ikincisidir. Sözleşme ikisini de kabul etmezse kanal doğrulamasının
+ * sonucu doğrudan atanamıyor.
+ */
+export interface SaleLineDraft {
+  productId: string;
+  /** Fişte basılacak ad — ürün sonradan silinse bile yerel kayıt okunabilsin. */
+  name: string;
+  quantity: string;
+  /** Birim satış fiyatı — KDV DAHİL. */
+  unitPrice: string;
+  vatRate: number;
+  discountRate?: string | undefined;
+  note?: string | undefined;
+}
+
+export interface SalePaymentDraft {
+  method: 'CASH' | 'CARD' | 'CREDIT' | 'TRANSFER';
+  amount: string;
+  /** Nakitte müşterinin verdiği tutar; para üstü bundan hesaplanır. */
+  receivedAmount?: string | undefined;
+  reference?: string | undefined;
+}
+
+export interface SaleDraft {
+  lines: SaleLineDraft[];
+  payments: SalePaymentDraft[];
+  contactId?: string | undefined;
+  contactName?: string | undefined;
+  documentDiscountRate?: string | undefined;
+  note?: string | undefined;
+}
+
+/** Fişin tek satırı — ekranda önizlenir, Faz 14'te yazıcıya aynı yapı gider. */
+export interface ReceiptLine {
+  name: string;
+  quantity: string;
+  unitPrice: string;
+  lineTotal: string;
+  vatRate: number;
+}
+
+export interface ReceiptData {
+  /** Sunucudan dönen gerçek fiş no; satış henüz gönderilmediyse null. */
+  receiptNo: string | null;
+  /** Yerel satış kimliği — sunucuya gidince aynı kayda bağlanır. */
+  clientSaleId: string;
+  soldAt: string;
+  registerName: string | null;
+  cashierName: string;
+  contactName: string | null;
+  lines: ReceiptLine[];
+  subtotal: string;
+  discountTotal: string;
+  vatBreakdown: { vatRate: number; base: string; vatAmount: string }[];
+  vatTotal: string;
+  grandTotal: string;
+  payments: { method: string; amount: string; receivedAmount: string | null }[];
+  changeDue: string;
+  header: string | null;
+  footer: string | null;
+  currency: string;
+}
+
+export interface CompletedSale {
+  clientSaleId: string;
+  grandTotal: string;
+  changeDue: string;
+  /** true ise satış sunucuya ULAŞTI; false ise kuyrukta bekliyor (çevrimdışı). */
+  synced: boolean;
+  receipt: ReceiptData;
+}
+
+/** Park edilmiş (bekletilen) satış — yerel, sunucuya gitmez. */
+export interface ParkedSale {
+  id: string;
+  label: string;
+  itemCount: number;
+  grandTotal: string;
+  parkedAt: string;
+}
+
+export interface ContactSummary {
+  id: string;
+  name: string;
+  phone: string | null;
+  /** Güncel bakiye (borç pozitif). */
+  balance: string;
+  creditLimit: string | null;
+}
+
+/** İade için aday satış — sunucudan gelir (iade çevrimiçi yapılır). */
+export interface RecentSale {
+  id: string;
+  receiptNo: string | null;
+  soldAt: string;
+  grandTotal: string;
+  status: string;
+  items: {
+    saleItemId: string;
+    productName: string;
+    quantity: string;
+    returnedQuantity: string;
+    lineTotal: string;
+  }[];
+}
+
+export interface ReturnInput {
+  saleId: string;
+  refundMethod: 'CASH' | 'CARD' | 'CREDIT' | 'TRANSFER';
+  reason: string;
+  items: { saleItemId: string; quantity: string }[];
+}
+
+export interface ReturnResult {
+  returnNo: string | null;
+  totalAmount: string;
 }
 
 export type UpdatePhase = 'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'error';
@@ -234,6 +438,29 @@ export interface StokkBridge {
     }): Promise<IpcResult<PosConfig>>;
     current(): Promise<IpcResult<CashSession | null>>;
     open(input: OpenShiftInput): Promise<IpcResult<CashSession>>;
+    /** Vardiyayı kapatır — sunucuya yazılır, çevrimdışı yapılamaz. */
+    close(input: CloseShiftInput): Promise<IpcResult<ShiftCloseResult>>;
+  };
+  catalog: {
+    settings(): Promise<IpcResult<PosSettings | null>>;
+    /** Ada ya da barkoda göre yerel arama; boş sorgu ilk N ürünü verir. */
+    search(query: string): Promise<IpcResult<CatalogProduct[]>>;
+    /** Okutulan barkodu çözer (tartılı barkod dahil). */
+    scan(barcode: string): Promise<IpcResult<ScanResult>>;
+  };
+  sale: {
+    /** Satışı yerele yazar, kuyruğa alır ve ağ varsa hemen göndermeyi dener. */
+    submit(draft: SaleDraft): Promise<IpcResult<CompletedSale>>;
+    park(input: { label: string; draft: SaleDraft }): Promise<IpcResult<ParkedSale>>;
+    parked(): Promise<IpcResult<ParkedSale[]>>;
+    unpark(id: string): Promise<IpcResult<SaleDraft>>;
+    discardParked(id: string): Promise<IpcResult<null>>;
+    /** İade için son satışlar — sunucudan gelir, çevrimdışı çalışmaz. */
+    recent(search: string): Promise<IpcResult<RecentSale[]>>;
+    return(input: ReturnInput): Promise<IpcResult<ReturnResult>>;
+  };
+  contacts: {
+    search(query: string): Promise<IpcResult<ContactSummary[]>>;
   };
   printer: {
     status(): Promise<IpcResult<DeviceStatus>>;

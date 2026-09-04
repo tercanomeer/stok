@@ -1,6 +1,7 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 import { addProduct, apiReachable, seedTenant, type TestTenant } from './support/api';
+import { cachedProductCount, completeBootstrap } from './support/flow';
 import { GateProxy } from './support/gate-proxy';
 import { launchPos, type LaunchedPos } from './support/pos-app';
 
@@ -36,53 +37,13 @@ test.beforeEach(() => {
   proxy.open();
 });
 
-/** Sunucu kurulumu → giriş → kasa → vardiya: akışın tamamı. */
-async function completeBootstrap(page: Page): Promise<void> {
-  await expect(page.getByRole('heading', { name: 'Sunucu adresi' })).toBeVisible({
-    timeout: 30_000,
-  });
-  await page.getByLabel('Sunucu adresi').fill(serverUrl);
-  await page.getByRole('button', { name: 'Bağlantıyı test et' }).click();
-  await expect(page.getByText(/Sunucuya ulaşıldı/)).toBeVisible({ timeout: 15_000 });
-  await page.getByRole('button', { name: 'Kaydet ve devam et' }).click();
-
-  await expect(page.getByRole('heading', { name: 'Giriş' })).toBeVisible({ timeout: 15_000 });
-  await page.getByLabel('E-posta').fill(tenant.email);
-  await page.getByLabel('Şifre').fill(tenant.password);
-  await page.getByRole('button', { name: 'Giriş yap' }).click();
-
-  await expect(page.getByRole('heading', { name: 'Kasa seçimi' })).toBeVisible({
-    timeout: 30_000,
-  });
-  await page.getByRole('button', { name: 'Kasa 1' }).click();
-
-  // Kasada zaten açık bir vardiya varsa uygulama vardiya açılışını hiç sormaz,
-  // doğrudan hazır ekranına geçer. Yoksa açılış formu gelir.
-  const ready = page.getByText('Vardiya açık');
-  const openingCash = page.getByLabel('Kasada bulunan nakit');
-  await expect(ready.or(openingCash)).toBeVisible({ timeout: 45_000 });
-
-  if (!(await ready.isVisible())) {
-    await openingCash.fill('250.00');
-    await page.getByRole('button', { name: 'Vardiyayı aç' }).click();
-  }
-
-  await expect(ready).toBeVisible({ timeout: 30_000 });
-}
-
-/** Açılış çekişi 30 sn'lik döngüden bağımsız başlar; tamamlanmasını bekler. */
-async function cachedProductCount(page: Page): Promise<number> {
-  const status = await page.evaluate(() => window.stokk.sync.status());
-  return status.ok ? status.data.cachedProductCount : 0;
-}
-
 test('ilk açılış: sunucu adresi → giriş → kasa seçimi → vardiya açılışı', async () => {
   const pos: LaunchedPos = await launchPos();
   try {
-    await completeBootstrap(pos.page);
+    await completeBootstrap(pos.page, tenant, serverUrl);
 
     // Açılışta tam çekiş yapıldı: katalog yerelde.
-    await expect(pos.page.getByText(/Ürün:\s*[1-9]/)).toBeVisible({ timeout: 45_000 });
+    await expect.poll(() => cachedProductCount(pos.page), { timeout: 45_000 }).toBeGreaterThan(0);
     await expect(pos.page.getByText('Çevrimiçi')).toBeVisible();
   } finally {
     await pos.close();
@@ -107,8 +68,11 @@ test('preload yüzeyi: renderer’a yalnız beyaz listeli köprü açılır', as
     expect(surface.namespaces).toEqual([
       'auth',
       'cashDrawer',
+      'catalog',
+      'contacts',
       'posDevice',
       'printer',
+      'sale',
       'scale',
       'shift',
       'sync',
@@ -136,8 +100,8 @@ test('ağ kapalı: önbellekteki kimlikle giriş yapılır ve ürün önbelleği
   const first = await launchPos();
   const userDataDir = first.userDataDir;
   try {
-    await completeBootstrap(first.page);
-    await expect(first.page.getByText(/Ürün:\s*[1-9]/)).toBeVisible({ timeout: 45_000 });
+    await completeBootstrap(first.page, tenant, serverUrl);
+    await expect.poll(() => cachedProductCount(first.page), { timeout: 45_000 }).toBeGreaterThan(0);
     await first.page.getByRole('button', { name: /Çıkış/ }).click();
     await expect(first.page.getByRole('heading', { name: 'Giriş' })).toBeVisible({
       timeout: 15_000,
@@ -181,7 +145,7 @@ test('ağ kapalı: önbellekteki kimlikle giriş yapılır ve ürün önbelleği
 test('ağ geri gelince katalog kendiliğinden tazelenir', async () => {
   const pos = await launchPos();
   try {
-    await completeBootstrap(pos.page);
+    await completeBootstrap(pos.page, tenant, serverUrl);
     await expect.poll(() => cachedProductCount(pos.page), { timeout: 45_000 }).toBeGreaterThan(0);
     const beforeCount = await cachedProductCount(pos.page);
 

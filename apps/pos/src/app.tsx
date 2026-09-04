@@ -8,13 +8,16 @@ import type {
 } from '@shared/ipc-contracts';
 import { useCallback, useEffect, useState, type ReactElement } from 'react';
 
+import { ToastProvider } from '@stokk/ui';
 
+
+import { FailedSalesDialog } from './components/sale/failed-sales-dialog';
 import { StatusBar } from './components/status-bar';
 import { resolveStep } from './lib/boot-flow';
 import { bridge, unwrap } from './lib/bridge';
 import { LoginScreen } from './screens/login-screen';
-import { ReadyScreen } from './screens/ready-screen';
 import { RegisterSelectScreen } from './screens/register-select-screen';
+import { SaleScreen } from './screens/sale-screen';
 import { ServerSetupScreen } from './screens/server-setup-screen';
 import { ShiftOpenScreen } from './screens/shift-open-screen';
 import { SplashScreen } from './screens/splash-screen';
@@ -50,6 +53,7 @@ export function App(): ReactElement {
   const [update, setUpdate] = useState<UpdateStatus>(IDLE_UPDATE);
   const [editingServer, setEditingServer] = useState(false);
   const [editingRegister, setEditingRegister] = useState(false);
+  const [showFailed, setShowFailed] = useState(false);
 
   // Açılış: main process'ten mevcut durumu topla. Ağ yoklaması yavaş olabilir,
   // splash onun için var.
@@ -136,6 +140,12 @@ export function App(): ReactElement {
     });
   }, []);
 
+  // Vardiya kapandı: akış vardiya açılış adımına döner (aynı kasa, yeni vardiya).
+  const handleShiftClosed = useCallback(() => {
+    setShift(null);
+    setShiftQueried(true);
+  }, []);
+
   const handleSyncNow = useCallback(() => {
     void unwrap(bridge().sync.run()).catch(() => undefined);
   }, []);
@@ -202,16 +212,39 @@ export function App(): ReactElement {
   }
 
   return (
-    <div className="bg-surface flex min-h-screen flex-col">
-      <StatusBar
-        session={session as PosSession}
-        network={network}
-        sync={sync}
-        update={update}
-        onSyncNow={handleSyncNow}
-        onLogout={handleLogout}
-      />
-      <ReadyScreen config={config} shift={shift as CashSession} sync={sync} />
-    </div>
+    <ToastProvider>
+      <div className="bg-surface flex h-screen flex-col overflow-hidden">
+        <StatusBar
+          session={session as PosSession}
+          network={network}
+          sync={sync}
+          update={update}
+          onSyncNow={handleSyncNow}
+          onLogout={handleLogout}
+          onShowFailed={() => {
+            setShowFailed(true);
+          }}
+        />
+        <SaleScreen
+          config={config}
+          onShiftClosed={handleShiftClosed}
+          session={session as PosSession}
+          shift={shift as CashSession}
+          network={network}
+          cachedProductCount={sync.cachedProductCount}
+        />
+        {showFailed ? (
+          <FailedSalesDialog
+            onClose={() => {
+              setShowFailed(false);
+            }}
+            onRequeued={() => {
+              setShowFailed(false);
+              handleSyncNow();
+            }}
+          />
+        ) : null}
+      </div>
+    </ToastProvider>
   );
 }
