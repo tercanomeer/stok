@@ -52,15 +52,30 @@ export const INVOKE_CHANNELS = [
   'sale:return',
   // contacts — veresiye ve müşteri seçimi (sunucudan canlı arama)
   'contacts:search',
-  // donanım — gövdeleri Faz 14'te dolar
+  // donanım (Faz 14)
   'printer:status',
   'printer:print-receipt',
+  'printer:test',
+  'printer:pending',
+  'printer:retry-pending',
+  'printer:discard-pending',
   'scale:status',
   'scale:read',
   'posDevice:status',
   'posDevice:pay',
+  'posDevice:query',
+  'posDevice:cancel',
   'cashDrawer:status',
   'cashDrawer:open',
+  'fiscal:status',
+  'fiscal:register',
+  // cihaz ayarları — makineye ait, sunucuya gitmez
+  'devices:get',
+  'devices:set',
+  'devices:serial-ports',
+  'devices:displays',
+  // müşteri ekranı
+  'display:update',
 ] as const;
 
 /** main → renderer (tek yönlü bildirim). */
@@ -69,6 +84,10 @@ export const EVENT_CHANNELS = [
   'event:sync-status',
   'event:session-changed',
   'event:update-status',
+  /** Müşteri ekranı penceresine giden sepet durumu. */
+  'event:customer-display',
+  /** Basılamamış fiş sayısı değişti. */
+  'event:print-queue',
 ] as const;
 
 export type InvokeChannel = (typeof INVOKE_CHANNELS)[number];
@@ -205,6 +224,10 @@ export interface PosSettings {
   negativeStockPolicy: 'ALLOW' | 'WARN' | 'BLOCK';
   receiptHeader: string | null;
   receiptFooter: string | null;
+  /** Fiş kağıdı genişliği (mm) — 58 ya da 80. */
+  receiptWidthMm: 58 | 80;
+  /** Satış biter bitmez fiş otomatik bassın mı. */
+  autoPrintReceipt: boolean;
 }
 
 /** Önbellekteki ürün — satış ekranı ürünü buradan alır, sunucuya sormaz. */
@@ -393,11 +416,127 @@ export interface UpdateStatus {
   message: string | null;
 }
 
-/** Donanım kanallarının Faz 14'e kadar döndüğü durum. */
+/** Bir cihazın kasiyere gösterilen durumu. */
 export interface DeviceStatus {
   connected: boolean;
   /** Kullanıcıya gösterilecek Türkçe açıklama. */
   detail: string;
+}
+
+// --- donanım (Faz 14) --------------------------------------------------------
+
+export type TransportKind = 'serial' | 'network' | 'none';
+
+/**
+ * Bağlantı tanımı — AYRIK BİRLEŞİM.
+ *
+ * Tek bir "her alanı isteğe bağlı" nesne, `kind: 'serial'` ama `path` boş gibi
+ * anlamsız durumları tip düzeyinde mümkün kılardı; main tarafındaki Zod şeması da
+ * ayrık birleşim olduğu için ikisi birebir örtüşsün.
+ */
+export type DeviceTransport =
+  /** COM3 / /dev/ttyUSB0. */
+  | { kind: 'serial'; path: string; baudRate: number }
+  /** Yazıcının IP'si ve RAW portu (genelde 9100). */
+  | { kind: 'network'; host: string; port: number }
+  | { kind: 'none' };
+
+export type Codepage = 'CP857' | 'CP1254';
+export type ScaleProtocolName = 'auto' | 'toledo' | 'cas' | 'generic';
+
+/**
+ * Kasa PC'sine bağlı cihazların ayarları — MAKİNEYE aittir, sunucuya gitmez
+ * (hangi COM portu, hangi IP). Fiş genişliği ve otomatik basım gibi POLİTİKA
+ * ayarları tenant tarafındadır ve `PosSettings` ile gelir.
+ */
+export interface DeviceSettings {
+  printer: {
+    transport: DeviceTransport;
+    codepage: Codepage;
+    openDrawerOnCashSale: boolean;
+    /** Fişin üstüne basılacak logo dosyası (kasa PC'sinde); yoksa null. */
+    logoPath: string | null;
+  };
+  scale: {
+    transport: DeviceTransport;
+    protocol: ScaleProtocolName;
+  };
+  customerDisplay: {
+    enabled: boolean;
+    displayId: number | null;
+  };
+  posDevice: { driver: 'none' | 'mock' };
+  fiscal: { driver: 'none' | 'mock' };
+}
+
+export interface SerialPortOption {
+  path: string;
+  manufacturer: string | null;
+  friendlyName: string | null;
+}
+
+export interface DisplayOption {
+  id: number;
+  label: string;
+  primary: boolean;
+}
+
+/** Terazi okuması. */
+export interface ScaleWeight {
+  /** Kilogram, 3 ondalık. */
+  weightKg: string;
+  /** Tartı oturdu mu — oturmamış değer satışa girmez. */
+  stable: boolean;
+  protocol: Exclude<ScaleProtocolName, 'auto'>;
+}
+
+/** Basılamamış fiş. */
+export interface PrintJob {
+  id: string;
+  clientSaleId: string;
+  receiptNo: string | null;
+  grandTotal: string;
+  attempts: number;
+  lastError: string | null;
+  createdAt: string;
+}
+
+export interface PrintResult {
+  printed: boolean;
+  /** Basılamadı ve yeniden yazdırma kuyruğuna alındı. */
+  queued: boolean;
+  message: string | null;
+}
+
+export type PosDeviceStatusValue = 'approved' | 'declined' | 'cancelled' | 'unknown';
+
+/** Banka POS cihazı işlem sonucu. */
+export interface PosDeviceResult {
+  /** Kasanın ürettiği işlem referansı; bağlantı koparsa akıbet bununla sorulur. */
+  referenceId: string;
+  status: PosDeviceStatusValue;
+  amount: string | null;
+  authCode: string | null;
+  cardMask: string | null;
+  message: string;
+}
+
+/** ÖKC (yeni nesil yazarkasa) sonucu — fiş üzerine basılır. */
+export interface FiscalResult {
+  fiscalNo: string;
+  /** Karekod içeriği (GİB doğrulama adresi). */
+  qrData: string;
+  registeredAt: string;
+}
+
+/** Müşteri ekranında gösterilen durum. */
+export interface CustomerDisplayState {
+  lines: { name: string; quantity: string; lineTotal: string }[];
+  grandTotal: string;
+  /** Satış bittiğinde gösterilecek para üstü; yoksa null. */
+  changeDue: string | null;
+  /** Ekranın alt satırında duran karşılama metni. */
+  message: string | null;
 }
 
 // --- preload yüzeyi ----------------------------------------------------------
@@ -464,18 +603,43 @@ export interface StokkBridge {
   };
   printer: {
     status(): Promise<IpcResult<DeviceStatus>>;
-    printReceipt(saleId: string): Promise<IpcResult<never>>;
+    /** Yerel satışın fişini basar; basılamazsa kuyruğa alır, HATA FIRLATMAZ. */
+    printReceipt(input: { clientSaleId: string; copy?: boolean }): Promise<IpcResult<PrintResult>>;
+    /** Ayarlardaki "Test fişi bas" — hata burada görünür olmalı. */
+    test(): Promise<IpcResult<null>>;
+    pending(): Promise<IpcResult<PrintJob[]>>;
+    retryPending(): Promise<IpcResult<{ printed: number; remaining: number }>>;
+    discardPending(id: string): Promise<IpcResult<null>>;
+    onQueueChange(listener: (pending: number) => void): Unsubscribe;
   };
   scale: {
     status(): Promise<IpcResult<DeviceStatus>>;
-    read(): Promise<IpcResult<never>>;
+    read(): Promise<IpcResult<ScaleWeight>>;
   };
   posDevice: {
     status(): Promise<IpcResult<DeviceStatus>>;
-    pay(amount: string): Promise<IpcResult<never>>;
+    pay(input: { amount: string; referenceId: string }): Promise<IpcResult<PosDeviceResult>>;
+    query(referenceId: string): Promise<IpcResult<PosDeviceResult>>;
+    cancel(referenceId: string): Promise<IpcResult<null>>;
   };
   cashDrawer: {
     status(): Promise<IpcResult<DeviceStatus>>;
-    open(): Promise<IpcResult<never>>;
+    open(): Promise<IpcResult<null>>;
+  };
+  fiscal: {
+    status(): Promise<IpcResult<DeviceStatus>>;
+    register(clientSaleId: string): Promise<IpcResult<FiscalResult>>;
+  };
+  devices: {
+    get(): Promise<IpcResult<DeviceSettings>>;
+    set(settings: DeviceSettings): Promise<IpcResult<DeviceSettings>>;
+    serialPorts(): Promise<IpcResult<SerialPortOption[]>>;
+    displays(): Promise<IpcResult<DisplayOption[]>>;
+  };
+  display: {
+    /** Sepet durumunu müşteri ekranına yayınlar. */
+    update(state: CustomerDisplayState): Promise<IpcResult<null>>;
+    /** Müşteri ekranı penceresi bu olayı dinler. */
+    onChange(listener: (state: CustomerDisplayState) => void): Unsubscribe;
   };
 }

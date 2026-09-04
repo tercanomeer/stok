@@ -555,14 +555,15 @@ pnpm test --filter @stokk/api
 
 ### Yapılacak işler
 
-- [ ] Termal yazıcı (ESC/POS): USB / seri / ağ bağlantısı, CP857 veya WPC1254 ile Türkçe karakter, logo basımı, fiş şablonu, para çekmecesi komutu
-- [ ] Yazıcı yoksa davranış: uyarı göster, **satışı asla engelleme**, fişi yeniden yazdırma kuyruğuna al
-- [ ] Terazi: seri port okuma, yaygın ASCII protokolleri, F-tuşu ile tartı çekme
-- [ ] Müşteri ekranı: ikinci monitörde tam ekran pencere veya seri VFD; main process'ten IPC yayını
-- [ ] Banka POS adapter interface'i + mock (gerçek SDK'lar sözleşmeye bağlı)
-- [ ] ÖKC adapter interface'i + mock; satış → fiscal no → fiş üzerinde karekod
-- [ ] Ayarlar ekranında test butonları: "Test fişi bas", "Tartıyı oku", "POS ping", "Çekmece aç"
-- [ ] Donanım hatalarının kullanıcıya anlaşılır Türkçe mesajla dönmesi
+- [x] Termal yazıcı (ESC/POS): seri/USB (COM) ve ağ (TCP 9100) bağlantısı, CP857 veya CP1254 ile Türkçe karakter, logo basımı, fiş şablonu, para çekmecesi komutu
+- [x] Yazıcı yoksa davranış: uyarı göster, **satışı asla engelleme**, fişi yeniden yazdırma kuyruğuna al
+- [x] Terazi: seri port okuma, yaygın ASCII protokolleri (Toledo/CAS/genel), F7 ile tartı çekme
+- [x] Müşteri ekranı: ikinci monitörde tam ekran pencere; main process'ten IPC yayını (seri VFD eklenmedi — bkz. faz notu)
+- [x] Banka POS adapter interface'i + mock (gerçek SDK'lar sözleşmeye bağlı)
+- [x] ÖKC adapter interface'i + mock; satış → fiscal no + karekod verisi
+- [x] Ayarlar ekranında test butonları: "Test fişi bas", "Tartıyı oku", "POS ping", "Çekmece aç"
+- [x] Donanım hatalarının kullanıcıya anlaşılır Türkçe mesajla dönmesi
+- [~] Gerçek donanımla doğrulama — geliştirme ortamında fiziksel yazıcı/terazi yok; bkz. `.ai-context/faz-14-notes.md`
 
 ### Kullanılacak ajanlar
 

@@ -22,6 +22,8 @@
     "@stokk/types": "workspace:*",
     "better-sqlite3": "catalog:",
     "electron-updater": "catalog:",
+    "iconv-lite": "catalog:",
+    "serialport": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

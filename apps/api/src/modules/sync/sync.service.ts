@@ -60,6 +60,9 @@ export class SyncService {
           negativeStockPolicy: true,
           receiptHeader: true,
           receiptFooter: true,
+          // Fiş POLİTİKASI tenant'a aittir; hangi porta bağlı olduğu makineye.
+          receiptWidthMm: true,
+          autoPrintReceipt: true,
         },
       });
       return { serverTime: new Date().toISOString(), products, settings };

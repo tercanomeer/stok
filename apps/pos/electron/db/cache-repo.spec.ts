@@ -93,6 +93,8 @@ describe('katalog önbelleği', () => {
         negativeStockPolicy: 'WARN',
         receiptHeader: null,
         receiptFooter: null,
+        receiptWidthMm: 80,
+        autoPrintReceipt: true,
       },
       '2026-09-03T09:00:00.000Z',
     );

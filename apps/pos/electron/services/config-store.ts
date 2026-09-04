@@ -3,6 +3,11 @@ import path from 'node:path';
 
 import { z } from 'zod';
 
+import {
+  DEFAULT_DEVICE_CONFIG,
+  deviceConfigSchema,
+  type DeviceConfig,
+} from '../hardware/device-config';
 import type { PosConfig } from '../shared/ipc-contracts';
 
 const configSchema = z
@@ -12,12 +17,16 @@ const configSchema = z
     registerName: z.string().nullable().default(null),
     offlineGraceDays: z.coerce.number().default(7),
     lastEmail: z.string().nullable().default(null),
+    // Cihaz ayarları makineye aittir (hangi COM portu, hangi IP) ve sunucuya
+    // gitmez; tenant tarafındaki fiş politikası `PosSettings` ile gelir.
+    devices: deviceConfigSchema.default(DEFAULT_DEVICE_CONFIG),
   })
   .strict();
 
 /** Çevrimdışı oturumun kod düzeyindeki üst sınırı; config dosyası bunu aşamaz. */
 export const MAX_OFFLINE_GRACE_DAYS = 90;
 
+/** Renderer'a giden varsayılan yapılandırma (cihaz ayarları AYRI kanaldan okunur). */
 export const DEFAULT_CONFIG: PosConfig = {
   serverUrl: null,
   registerId: null,
@@ -25,6 +34,13 @@ export const DEFAULT_CONFIG: PosConfig = {
   offlineGraceDays: 7,
   lastEmail: null,
 };
+
+/** Diskte duran tam yapılandırma: `PosConfig` + makineye ait cihaz ayarları. */
+export interface StoredConfig extends PosConfig {
+  devices: DeviceConfig;
+}
+
+const DEFAULT_STORED_CONFIG: StoredConfig = { ...DEFAULT_CONFIG, devices: DEFAULT_DEVICE_CONFIG };
 
 /** Sunucu adresi doğrulaması sonucu. */
 export type ServerUrlCheck = { ok: true; url: string } | { ok: false; message: string };
@@ -79,7 +95,7 @@ export function normalizeServerUrl(input: string): ServerUrlCheck {
  * çevrimdışı oturum süresiz uzatılabilirdi. Bu yüzden değerler yazılırken DE
  * okunurken DE aynı süzgeçten geçer.
  */
-function sanitize(config: PosConfig): PosConfig {
+function sanitize(config: StoredConfig): StoredConfig {
   const server = config.serverUrl === null ? null : normalizeServerUrl(config.serverUrl);
   const grace = Number.isFinite(config.offlineGraceDays)
     ? Math.min(MAX_OFFLINE_GRACE_DAYS, Math.max(1, Math.trunc(config.offlineGraceDays)))
@@ -97,27 +113,38 @@ function sanitize(config: PosConfig): PosConfig {
  * gizli bilgi TUTMAZ, token'lar şifreli olarak SQLite'ta durur.
  */
 export class ConfigStore {
-  private cache: PosConfig;
+  private cache: StoredConfig;
 
   constructor(private readonly file: string) {
     this.cache = this.load();
   }
 
-  private load(): PosConfig {
+  private load(): StoredConfig {
     try {
       const raw = fs.readFileSync(this.file, 'utf8');
       const parsed = configSchema.safeParse(JSON.parse(raw));
       if (parsed.success) return sanitize(parsed.data);
       // Bozuk config uygulamayı açılmaz hâle getirmemeli: varsayılana dön,
       // kullanıcı kurulum ekranından yeniden ayarlasın.
-      return { ...DEFAULT_CONFIG };
+      return structuredClone(DEFAULT_STORED_CONFIG);
     } catch {
-      return { ...DEFAULT_CONFIG };
+      return structuredClone(DEFAULT_STORED_CONFIG);
     }
   }
 
+  /** Renderer'a giden yapılandırma — cihaz ayarları AYRI kanaldan okunur. */
   get(): PosConfig {
-    return { ...this.cache };
+    const { devices: _devices, ...config } = this.cache;
+    return config;
+  }
+
+  getDevices(): DeviceConfig {
+    return structuredClone(this.cache.devices);
+  }
+
+  setDevices(devices: DeviceConfig): DeviceConfig {
+    this.write({ ...this.cache, devices });
+    return this.getDevices();
   }
 
   /**
@@ -125,9 +152,13 @@ export class ConfigStore {
    * BURADA da doğrulanır; `load()` ile aynı süzgeçten geçer.
    */
   patch(changes: Partial<PosConfig>): PosConfig {
-    this.cache = sanitize({ ...this.cache, ...changes });
+    this.write({ ...this.cache, ...changes });
+    return this.get();
+  }
+
+  private write(next: StoredConfig): void {
+    this.cache = sanitize(next);
     fs.mkdirSync(path.dirname(this.file), { recursive: true });
     fs.writeFileSync(this.file, `${JSON.stringify(this.cache, null, 2)}\n`, { mode: 0o600 });
-    return this.get();
   }
 }

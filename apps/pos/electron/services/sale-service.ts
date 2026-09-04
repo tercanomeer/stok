@@ -15,7 +15,7 @@ import type { SyncService } from './sync-service';
 import { readSettings } from '../db/cache-repo';
 import { findProductById } from '../db/catalog-repo';
 import type { PosDatabase } from '../db/database';
-import { findLocalSale, saveLocalSale } from '../db/local-sale-repo';
+import { findLocalSale, readLocalSale, saveLocalSale } from '../db/local-sale-repo';
 import { discardParked, listParked, parkSale, unparkSale } from '../db/parked-repo';
 import { AppError } from '../lib/app-error';
 import type {
@@ -128,6 +128,79 @@ export class SaleService {
         breakdown,
         changeDue,
       }),
+    };
+  }
+
+  /**
+   * Kaydedilmiş bir satışın fişi — yeniden basım ve ÖKC bildirimi için.
+   *
+   * Fiş, satışın YAPILDIĞI andaki girdilerle kurulur: miktar, birim fiyat, KDV
+   * oranı ve indirim kayıttan okunur, katalogdan DEĞİL. Hesap yine
+   * `@stokk/pos-core` ile yapılır — aynı girdi aynı sonucu verir ve fişte ikinci
+   * bir KDV formülü doğmaz (CLAUDE.md).
+   */
+  receiptFor(clientSaleId: string): { receipt: ReceiptData; cashSale: boolean } {
+    const stored = readLocalSale(this.deps.db, clientSaleId);
+    if (!stored) throw new AppError('SALE_NOT_FOUND', 'Satış bulunamadı.');
+
+    const breakdown = this.calculate({
+      lines: stored.lines.map((line) => ({
+        productId: line.productId,
+        name: line.name,
+        quantity: line.quantity,
+        unitPrice: line.unitPrice,
+        vatRate: line.vatRate,
+        ...(line.discountRate === null ? {} : { discountRate: line.discountRate }),
+      })),
+      payments: [],
+      ...(stored.documentDiscountRate === null
+        ? {}
+        : { documentDiscountRate: stored.documentDiscountRate }),
+    });
+
+    const payments = stored.payments.map((payment) => ({
+      method: payment.method,
+      amount: payment.amount,
+      ...(payment.receivedAmount === null ? {} : { receivedAmount: payment.receivedAmount }),
+    }));
+    const settlement = settlePayments(payments, breakdown.totals.grandTotal);
+
+    const settings = readSettings(this.deps.db);
+    const config = this.deps.config.get();
+
+    return {
+      cashSale: Number(settlement.cashDue) > 0,
+      receipt: {
+        receiptNo: stored.receiptNo,
+        clientSaleId: stored.id,
+        soldAt: stored.soldAt,
+        registerName: config.registerName,
+        cashierName: this.deps.auth.session?.user.fullName ?? '-',
+        // Müşteri adı yerel satışta saklanmıyor (yalnız `contactId`); kopyada
+        // yanlış ad basmaktansa boş bırakılıyor.
+        contactName: null,
+        lines: stored.lines.map((line, index) => ({
+          name: line.name,
+          quantity: line.quantity,
+          unitPrice: line.unitPrice,
+          lineTotal: breakdown.lines[index]?.lineTotal ?? line.lineTotal,
+          vatRate: line.vatRate,
+        })),
+        subtotal: breakdown.totals.subtotal,
+        discountTotal: breakdown.totals.discountTotal,
+        vatBreakdown: breakdown.totals.vatBreakdown,
+        vatTotal: breakdown.totals.vatTotal,
+        grandTotal: breakdown.totals.grandTotal,
+        payments: stored.payments.map((payment) => ({
+          method: payment.method,
+          amount: payment.amount,
+          receivedAmount: payment.receivedAmount,
+        })),
+        changeDue: settlement.changeDue,
+        header: settings?.receiptHeader ?? null,
+        footer: settings?.receiptFooter ?? null,
+        currency: settings?.currency ?? 'TRY',
+      },
     };
   }
 

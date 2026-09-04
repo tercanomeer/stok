@@ -195,3 +195,60 @@ export function findLocalSale(db: PosDatabase, clientSaleId: string): LocalSaleR
     .get(clientSaleId) as LocalSaleRecord | undefined;
   return row ?? null;
 }
+
+/** Yerel satışın fişe dönüşmesi için gereken tam hâli. */
+export interface StoredLocalSale {
+  id: string;
+  status: LocalSaleRecord['status'];
+  receiptNo: string | null;
+  soldAt: string;
+  contactId: string | null;
+  documentDiscountRate: string | null;
+  lines: {
+    productId: string;
+    name: string;
+    quantity: string;
+    unitPrice: string;
+    vatRate: number;
+    discountRate: string | null;
+    lineTotal: string;
+    note: string | null;
+  }[];
+  payments: { method: PaymentMethod; amount: string; receivedAmount: string | null }[];
+}
+
+/**
+ * Fiş yeniden basımı için satışı OLDUĞU GİBİ okur.
+ *
+ * Fiş, satışın yapıldığı andaki fiyatlarla basılmalı; ürün kataloğundan yeniden
+ * hesaplamak, aradan geçen sürede değişmiş bir fiyatın kağıda yansıması demekti.
+ * Bu yüzden satır tutarları da kayıttan okunuyor, yeniden hesaplanmıyor.
+ */
+export function readLocalSale(db: PosDatabase, clientSaleId: string): StoredLocalSale | null {
+  const header = db
+    .prepare(
+      `SELECT id, status, receipt_no AS receiptNo, sold_at AS soldAt, contact_id AS contactId,
+              document_discount_rate AS documentDiscountRate
+         FROM local_sales WHERE id = ?`,
+    )
+    .get(clientSaleId) as Omit<StoredLocalSale, 'lines' | 'payments'> | undefined;
+  if (!header) return null;
+
+  const lines = db
+    .prepare(
+      `SELECT product_id AS productId, name, quantity, unit_price AS unitPrice,
+              vat_rate AS vatRate, discount_rate AS discountRate,
+              line_total AS lineTotal, note
+         FROM local_sale_items WHERE sale_id = ? ORDER BY sort_order`,
+    )
+    .all(clientSaleId) as StoredLocalSale['lines'];
+
+  const payments = db
+    .prepare(
+      `SELECT method, amount, received_amount AS receivedAmount
+         FROM local_payments WHERE sale_id = ? ORDER BY rowid`,
+    )
+    .all(clientSaleId) as StoredLocalSale['payments'];
+
+  return { ...header, lines, payments };
+}

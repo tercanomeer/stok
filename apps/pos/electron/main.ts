@@ -1,8 +1,11 @@
+import path from 'node:path';
+
 import { app, BrowserWindow } from 'electron';
 
 import { createAppContext, type AppContext } from './app-context';
 import { trustWebContents } from './ipc/handler';
 import { registerHandlers } from './ipc/register-handlers';
+import { Logger, setLogger, log } from './lib/logger';
 import { applyContentSecurityPolicy, createMainWindow, hardenWebContents } from './window';
 
 /**
@@ -33,6 +36,10 @@ if (!app.requestSingleInstanceLock()) {
   app.on('web-contents-created', (_event, contents) => hardenWebContents(contents));
 
   void app.whenReady().then(() => {
+    // Kurulu sürümde konsol yok: arıza teşhisi için log DOSYAYA yazılır.
+    setLogger(new Logger(path.join(app.getPath('userData'), 'logs', 'stokk-pos.log')));
+    log('info', 'app', 'kasa açılıyor', { version: app.getVersion() });
+
     applyContentSecurityPolicy();
     context = createAppContext();
     mainWindow = createMainWindow();
@@ -44,6 +51,8 @@ if (!app.requestSingleInstanceLock()) {
     // Kaydedilmiş oturum varsa kasiyer şifre girmeden devam eder; yoksa giriş ekranı.
     context.auth.restoreLast(context.config.get().lastEmail);
     context.updater.start();
+    // Müşteri ekranı ayarda açıksa kasa açılışıyla birlikte gelir.
+    context.customerDisplay.start();
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0 && context) {
@@ -65,4 +74,5 @@ app.on('before-quit', () => {
   unregisterEvents?.();
   context?.dispose();
   context = null;
+  setLogger(null);
 });

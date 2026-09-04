@@ -411,3 +411,128 @@ test('F3 indirim ve F8 satır notu sepete işler, fişte görünür', async () =
     await pos.close();
   }
 });
+
+test('cihaz ayarları: yazıcı tanımsızken satış tamamlanır, ayar kalıcı olur', async () => {
+  const pos = await launchPos();
+  try {
+    await completeBootstrap(pos.page, tenant, serverUrl);
+    await expect.poll(() => cachedProductCount(pos.page), { timeout: 45_000 }).toBeGreaterThan(0);
+
+    // Yazıcı tanımlı değil: satış YİNE tamamlanır (fiş basımı satışı engellemez)
+    // ve kuyruk da büyümez — basılacağı bir cihaz yok.
+    await scan(pos.page, BARCODE);
+    await pos.page.keyboard.press('F1');
+    await pos.page.getByRole('button', { name: 'Tam üstü' }).click();
+    await pos.page.getByRole('button', { name: 'Satışı tamamla' }).click();
+    await expect(pos.page.getByRole('heading', { name: 'Satış tamamlandı' })).toBeVisible({
+      timeout: 30_000,
+    });
+    await pos.page.getByRole('button', { name: /Yeni satış/ }).click();
+
+    const queued = await pos.page.evaluate(() => window.stokk.printer.pending());
+    expect(queued).toMatchObject({ ok: true, data: [] });
+
+    // Ayarlar ekranı F12 ile açılıyor ve seçim MAKİNEYE yazılıyor.
+    await pos.page.keyboard.press('F12');
+    await expect(pos.page.getByRole('heading', { name: 'Cihaz ayarları' })).toBeVisible();
+
+    await pos.page.getByLabel('Türkçe karakter tablosu').selectOption('CP1254');
+    await expect
+      .poll(async () => {
+        const settings = await pos.page.evaluate(() => window.stokk.devices.get());
+        return settings.ok ? settings.data.printer.codepage : null;
+      })
+      .toBe('CP1254');
+
+    await pos.page.getByRole('button', { name: /Satışa dön/ }).click();
+    await expect(pos.page.getByText('Sepet boş')).toBeVisible();
+  } finally {
+    await pos.close();
+  }
+});
+
+test('müşteri ekranı sepetle eşzamanlı güncellenir', async () => {
+  const pos = await launchPos();
+  try {
+    await completeBootstrap(pos.page, tenant, serverUrl);
+    await expect.poll(() => cachedProductCount(pos.page), { timeout: 45_000 }).toBeGreaterThan(0);
+
+    // Ayardan aç: pencere uygulamayı yeniden başlatmadan gelmeli.
+    await pos.page.keyboard.press('F12');
+    await expect(pos.page.getByRole('heading', { name: 'Cihaz ayarları' })).toBeVisible();
+    await pos.page.getByLabel('İkinci ekranda müşteri ekranını göster').check();
+    // Test makinesinde tek monitör var; otomatik seçim BİLEREK ekran açmıyor
+    // (kasiyerin ekranını kaplamamak için). Kullanıcının açık seçimi bunu ezer.
+    await pos.page.getByLabel('Ekran', { exact: true }).selectOption({ index: 1 });
+
+    const display = await pos.app.waitForEvent('window', { timeout: 20_000 });
+    await display.waitForLoadState('domcontentloaded');
+    await expect(display.getByText('Hoş geldiniz')).toBeVisible({ timeout: 20_000 });
+
+    // Sepete eklenen kalem müşteri ekranına da düşer.
+    await pos.page.getByRole('button', { name: /Satışa dön/ }).click();
+    await scan(pos.page, BARCODE);
+    await expect(pos.page.getByText('1 × ₺12,00')).toBeVisible({ timeout: 15_000 });
+
+    await expect(display.getByText('Faz13 Barkodlu Ürün')).toBeVisible({ timeout: 15_000 });
+    await expect(display.getByText('₺12,00').first()).toBeVisible();
+
+    // Satış bitince müşteri ekranı para üstünü gösterir.
+    await pos.page.keyboard.press('F1');
+    await pos.page.getByLabel('Ödeme tutarı').fill('20');
+    await pos.page.keyboard.press('F1');
+    await pos.page.getByRole('button', { name: 'Satışı tamamla' }).click();
+    await expect(pos.page.getByRole('heading', { name: 'Satış tamamlandı' })).toBeVisible({
+      timeout: 30_000,
+    });
+
+    await expect(display.getByText('PARA ÜSTÜ')).toBeVisible({ timeout: 15_000 });
+    await expect(display.getByText('₺8,00')).toBeVisible();
+  } finally {
+    await pos.close();
+  }
+});
+
+test('yazıcı erişilemezken satış tamamlanır ve fiş KUYRUĞA alınır', async () => {
+  const pos = await launchPos();
+  try {
+    await completeBootstrap(pos.page, tenant, serverUrl);
+    await expect.poll(() => cachedProductCount(pos.page), { timeout: 45_000 }).toBeGreaterThan(0);
+
+    // Var olmayan bir ağ yazıcısı tanımlanıyor: "tanımlı ama ulaşılamıyor"
+    // durumu, "hiç tanımlı değil"den farklı davranmalı.
+    await pos.page.keyboard.press('F12');
+    await expect(pos.page.getByRole('heading', { name: 'Cihaz ayarları' })).toBeVisible();
+    const printerSection = pos.page.getByRole('region', { name: 'Fiş yazıcısı' });
+    await printerSection.getByLabel('Bağlantı').selectOption('network');
+    await printerSection.getByLabel('IP adresi').fill('127.0.0.1');
+    await printerSection.getByLabel('Port', { exact: true }).fill('9');
+    await printerSection.getByLabel('Port', { exact: true }).blur();
+    await pos.page.getByRole('button', { name: /Satışa dön/ }).click();
+
+    await scan(pos.page, BARCODE);
+    await pos.page.keyboard.press('F1');
+    await pos.page.getByRole('button', { name: 'Tam üstü' }).click();
+    await pos.page.getByRole('button', { name: 'Satışı tamamla' }).click();
+
+    // SATIŞ TAMAMLANDI — yazıcı hatası satışı düşürmedi.
+    await expect(pos.page.getByRole('heading', { name: 'Satış tamamlandı' })).toBeVisible({
+      timeout: 30_000,
+    });
+    await pos.page.getByRole('button', { name: /Yeni satış/ }).click();
+
+    // Fiş kuyruğa alındı ve üst şeritte görünüyor.
+    await expect
+      .poll(
+        async () => {
+          const jobs = await pos.page.evaluate(() => window.stokk.printer.pending());
+          return jobs.ok ? jobs.data.length : -1;
+        },
+        { timeout: 30_000 },
+      )
+      .toBe(1);
+    await expect(pos.page.getByText(/fiş basılamadı/)).toBeVisible({ timeout: 15_000 });
+  } finally {
+    await pos.close();
+  }
+});

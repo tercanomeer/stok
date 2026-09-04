@@ -257,6 +257,8 @@ describe('SaleService — satış gönderimi', () => {
         negativeStockPolicy: 'WARN',
         receiptHeader: 'STOKK MARKET',
         receiptFooter: 'Teşekkürler',
+        receiptWidthMm: 80,
+        autoPrintReceipt: true,
       },
       NOW.toISOString(),
     );
@@ -286,6 +288,8 @@ describe('SaleService — indirim yetkisi', () => {
         negativeStockPolicy: 'WARN',
         receiptHeader: null,
         receiptFooter: null,
+        receiptWidthMm: 80,
+        autoPrintReceipt: true,
       },
       NOW.toISOString(),
     );
@@ -342,6 +346,8 @@ describe('SaleService — negatif stok politikası', () => {
         negativeStockPolicy: policy,
         receiptHeader: null,
         receiptFooter: null,
+        receiptWidthMm: 80,
+        autoPrintReceipt: true,
       },
       NOW.toISOString(),
     );

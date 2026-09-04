@@ -15,6 +15,7 @@ export type SaleAction =
   | 'scale'
   | 'note'
   | 'closeShift'
+  | 'settings'
   | 'clear';
 
 export interface ShortcutDef {
@@ -36,6 +37,9 @@ export const SHORTCUTS: readonly ShortcutDef[] = [
   { key: 'F8', label: 'Satır notu', action: 'note', primary: false },
   { key: 'F9', label: 'Sepeti boşalt', action: 'clear', primary: false },
   { key: 'F10', label: 'Vardiya kapat', action: 'closeShift', primary: false },
+  // Cihaz ayarları F1-F10 dışında: kasiyerin gün içinde basacağı bir tuş değil,
+  // kurulum/arıza anında girilen bir ekran.
+  { key: 'F12', label: 'Cihaz ayarları', action: 'settings', primary: false },
 ];
 
 const BY_KEY = new Map(SHORTCUTS.map((shortcut) => [shortcut.key, shortcut.action]));

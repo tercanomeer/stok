@@ -2,6 +2,7 @@ import { ipcMain, type IpcMainInvokeEvent, type WebContents } from 'electron';
 import { ZodError, type ZodType } from 'zod';
 
 import { AppError } from '../lib/app-error';
+import { log } from '../lib/logger';
 import { ApiRequestError } from '../services/api-client';
 import { INVOKE_CHANNELS, type InvokeChannel, type IpcResult } from '../shared/ipc-contracts';
 
@@ -39,7 +40,9 @@ function toFailure(error: unknown): IpcResult<never> {
   if (error instanceof ApiRequestError || error instanceof AppError) {
     return { ok: false, error: { code: error.code, message: error.message } };
   }
-  console.error('[ipc] beklenmeyen hata', error);
+  log('error', 'ipc', 'beklenmeyen hata', {
+    detail: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+  });
   return {
     ok: false,
     error: { code: 'UNEXPECTED', message: 'Beklenmeyen bir hata oluştu, tekrar deneyin.' },

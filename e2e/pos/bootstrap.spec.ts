@@ -70,6 +70,9 @@ test('preload yüzeyi: renderer’a yalnız beyaz listeli köprü açılır', as
       'cashDrawer',
       'catalog',
       'contacts',
+      'devices',
+      'display',
+      'fiscal',
       'posDevice',
       'printer',
       'sale',
@@ -80,12 +83,15 @@ test('preload yüzeyi: renderer’a yalnız beyaz listeli köprü açılır', as
     ]);
     expect(surface.leaks).toEqual([]);
 
-    // Donanım kanalları Faz 14'e kadar açıkça "hazır değil" der; sessizce çökmez.
+    // Cihaz tanımlı değilken durum sorgusu HATA VERMEZ, "bağlı değil" der.
     const printer = await pos.page.evaluate(() => window.stokk.printer.status());
     expect(printer).toMatchObject({ ok: true, data: { connected: false } });
 
-    const receipt = await pos.page.evaluate(() => window.stokk.printer.printReceipt('x'));
-    expect(receipt).toMatchObject({ ok: false, error: { code: 'NOT_IMPLEMENTED' } });
+    // Olmayan satışın fişi istenirse açık bir hata döner, sessizce geçilmez.
+    const receipt = await pos.page.evaluate(() =>
+      window.stokk.printer.printReceipt({ clientSaleId: 'yok' }),
+    );
+    expect(receipt).toMatchObject({ ok: false, error: { code: 'SALE_NOT_FOUND' } });
 
     // Uygulama bilgisi köprüden okunabiliyor (kanal gerçekten kayıtlı).
     const info = await pos.page.evaluate(() => window.stokk.system.appInfo());

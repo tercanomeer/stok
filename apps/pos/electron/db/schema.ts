@@ -143,4 +143,23 @@ export const MIGRATIONS: readonly string[] = [
   );
   CREATE INDEX idx_parked_sales_parked_at ON parked_sales(parked_at);
   `,
+
+  // 3 — basılamamış fişler (Faz 14)
+  //
+  // Yazıcı yoksa/kağıt bittiyse satış YİNE tamamlanır; fiş buraya düşer ve
+  // sorun giderilince yeniden basılır. Fişin tamamı (`payload`) saklanır:
+  // yeniden basımda satışı yeniden hesaplamak, aradan geçen zamanda değişmiş
+  // bir fiyatın kağıda yansıması demek olurdu.
+  `
+  CREATE TABLE print_queue (
+    id             TEXT PRIMARY KEY,
+    client_sale_id TEXT NOT NULL,
+    payload        TEXT NOT NULL,
+    attempts       INTEGER NOT NULL DEFAULT 0,
+    last_error     TEXT,
+    created_at     TEXT NOT NULL,
+    updated_at     TEXT NOT NULL
+  );
+  CREATE INDEX idx_print_queue_created_at ON print_queue(created_at);
+  `,
 ];

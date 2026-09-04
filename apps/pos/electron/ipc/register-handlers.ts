@@ -3,7 +3,9 @@ import { z } from 'zod';
 
 import type { AppContext } from '../app-context';
 import { assertChannelsRegistered, defineHandler } from './handler';
-import { AppError, NotImplementedError } from '../lib/app-error';
+import { deviceConfigSchema } from '../hardware/device-config';
+import { listSerialPorts } from '../hardware/transports';
+import { AppError } from '../lib/app-error';
 import { normalizeServerUrl } from '../services/config-store';
 import type {
   AppInfo,
@@ -22,8 +24,17 @@ import type {
   RecentSale,
   Register,
   ReturnResult,
+  CustomerDisplayState,
+  DeviceSettings,
+  DisplayOption,
+  FiscalResult,
+  PosDeviceResult,
+  PrintJob,
+  PrintResult,
   SaleDraft,
+  ScaleWeight,
   ScanResult,
+  SerialPortOption,
   ShiftCloseResult,
   SyncRunResult,
   SyncStatus,
@@ -58,9 +69,6 @@ const closeShiftSchema = z
 const selectRegisterSchema = z
   .object({ registerId: z.string().min(1).max(64), registerName: z.string().min(1).max(120) })
   .strict();
-
-const saleIdSchema = z.object({ saleId: z.string().min(1).max(64) }).strict();
-const amountSchema = z.object({ amount: z.string().min(1).max(20) }).strict();
 
 // --- satış ekranı şemaları ---------------------------------------------------
 // Renderer güvenilmez taraftır: kanaldan geçen her şey burada strict doğrulanır.
@@ -134,10 +142,33 @@ const returnSchema = z
   })
   .strict();
 
-/** Faz 14'e kadar donanım kanallarının verdiği yanıt. */
-function offlineDevice(detail: string): DeviceStatus {
-  return { connected: false, detail };
+/** Durum sorgularında hatayı kasiyer diline çevirir; sorgu HATA fırlatmaz. */
+function describeDeviceError(error: unknown): string {
+  return error instanceof AppError ? error.message : 'Cihaz durumu okunamadı.';
 }
+
+const printReceiptSchema = z
+  .object({ clientSaleId: z.string().min(1).max(64), copy: z.boolean().optional() })
+  .strict();
+
+const paySchema = z.object({ amount: money, referenceId: z.string().min(1).max(64) }).strict();
+
+const referenceSchema = z.object({ referenceId: z.string().min(1).max(64) }).strict();
+
+const displayStateSchema = z
+  .object({
+    lines: z
+      .array(
+        z
+          .object({ name: z.string().max(200), quantity: z.string().max(20), lineTotal: money })
+          .strict(),
+      )
+      .max(200),
+    grandTotal: money,
+    changeDue: money.nullable(),
+    message: z.string().max(200).nullable(),
+  })
+  .strict();
 
 /**
  * Tüm IPC kanallarını kaydeder ve main → renderer olaylarını pencereye bağlar.
@@ -147,6 +178,11 @@ function offlineDevice(detail: string): DeviceStatus {
 export function registerHandlers(context: AppContext, window: BrowserWindow): () => void {
   const emit = <T>(channel: EventChannel, payload: T): void => {
     if (!window.isDestroyed()) window.webContents.send(channel, payload);
+  };
+
+  /** Basılamamış fiş sayısı değişti — üst şerit rozeti bunu dinliyor. */
+  const emitPrintQueue = (): void => {
+    emit('event:print-queue', context.printer.pendingCount());
   };
 
   // --- system ---------------------------------------------------------------
@@ -298,32 +334,147 @@ export function registerHandlers(context: AppContext, window: BrowserWindow): ()
   );
 
   // --- donanım (Faz 14) -----------------------------------------------------
-  defineHandler<undefined, DeviceStatus>('printer:status', null, () =>
-    offlineDevice('Fiş yazıcısı Faz 14’te bağlanacak.'),
+  //
+  // Durum sorguları HATA FIRLATMAZ: kasiyer üst şeritte "bağlı değil" görmeli,
+  // kırmızı bir hata kutusu değil. Asıl işlemler (yazdır, tart, ödeme) hatayı
+  // Türkçe mesajla döndürür.
+
+  defineHandler<undefined, DeviceStatus>('printer:status', null, () => ({
+    connected: context.printer.configured,
+    detail: context.printer.configured
+      ? 'Yazıcı tanımlı.'
+      : 'Yazıcı tanımlı değil. Ayarlar ekranından seçin.',
+  }));
+
+  /**
+   * Fiş basar. Yazıcı yoksa/kağıt bittiyse HATA DÖNMEZ — iş kuyruğa alınır ve
+   * `queued: true` döner; satış ekranı bunu uyarı olarak gösterir.
+   */
+  defineHandler<z.infer<typeof printReceiptSchema>, PrintResult>(
+    'printer:print-receipt',
+    printReceiptSchema,
+    async (input) => {
+      const sale = context.sale.receiptFor(input.clientSaleId);
+      const result = await context.printer.printReceipt(sale.receipt, {
+        copy: input.copy ?? true,
+        cashSale: sale.cashSale,
+      });
+      emitPrintQueue();
+      return result;
+    },
   );
-  defineHandler<z.infer<typeof saleIdSchema>, never>('printer:print-receipt', saleIdSchema, () => {
-    throw new NotImplementedError('Fiş yazdırma');
+
+  defineHandler<undefined, null>('printer:test', null, async () => {
+    await context.printer.printTest();
+    return null;
   });
 
-  defineHandler<undefined, DeviceStatus>('scale:status', null, () =>
-    offlineDevice('Terazi Faz 14’te bağlanacak.'),
+  defineHandler<undefined, PrintJob[]>('printer:pending', null, () => context.printer.pending());
+
+  defineHandler<undefined, { printed: number; remaining: number }>(
+    'printer:retry-pending',
+    null,
+    async () => {
+      const result = await context.printer.retryPending();
+      emitPrintQueue();
+      return result;
+    },
   );
-  defineHandler<undefined, never>('scale:read', null, () => {
-    throw new NotImplementedError('Terazi okuma');
+
+  defineHandler<{ id: string }, null>('printer:discard-pending', idSchema, (input) => {
+    context.printer.discardPending(input.id);
+    emitPrintQueue();
+    return null;
   });
 
-  defineHandler<undefined, DeviceStatus>('posDevice:status', null, () =>
-    offlineDevice('POS cihazı Faz 14’te bağlanacak.'),
-  );
-  defineHandler<z.infer<typeof amountSchema>, never>('posDevice:pay', amountSchema, () => {
-    throw new NotImplementedError('POS cihazıyla ödeme');
+  defineHandler<undefined, DeviceStatus>('scale:status', null, () => ({
+    connected: context.scale.configured,
+    detail: context.scale.configured
+      ? 'Terazi tanımlı.'
+      : 'Terazi tanımlı değil. Ayarlar ekranından seçin.',
+  }));
+
+  defineHandler<undefined, ScaleWeight>('scale:read', null, () => context.scale.read());
+
+  defineHandler<undefined, DeviceStatus>('posDevice:status', null, async () => {
+    try {
+      const result = await context.posDevice().ping();
+      return { connected: result.ok, detail: result.detail };
+    } catch (error) {
+      return { connected: false, detail: describeDeviceError(error) };
+    }
   });
 
-  defineHandler<undefined, DeviceStatus>('cashDrawer:status', null, () =>
-    offlineDevice('Para çekmecesi Faz 14’te bağlanacak.'),
+  defineHandler<z.infer<typeof paySchema>, PosDeviceResult>('posDevice:pay', paySchema, (input) =>
+    context.posDevice().pay(input),
   );
-  defineHandler<undefined, never>('cashDrawer:open', null, () => {
-    throw new NotImplementedError('Para çekmecesi açma');
+
+  defineHandler<{ referenceId: string }, PosDeviceResult>(
+    'posDevice:query',
+    referenceSchema,
+    (input) => context.posDevice().query(input.referenceId),
+  );
+
+  defineHandler<{ referenceId: string }, null>(
+    'posDevice:cancel',
+    referenceSchema,
+    async (input) => {
+      await context.posDevice().cancel(input.referenceId);
+      return null;
+    },
+  );
+
+  defineHandler<undefined, DeviceStatus>('cashDrawer:status', null, () => ({
+    // Çekmece yazıcıya bağlıdır; kendi bağlantısı yoktur.
+    connected: context.printer.configured,
+    detail: context.printer.configured
+      ? 'Çekmece yazıcı üzerinden açılıyor.'
+      : 'Çekmece için önce yazıcı tanımlanmalı.',
+  }));
+
+  defineHandler<undefined, null>('cashDrawer:open', null, async () => {
+    await context.printer.openDrawer();
+    return null;
+  });
+
+  defineHandler<undefined, DeviceStatus>('fiscal:status', null, async () => {
+    try {
+      const result = await context.fiscal().ping();
+      return { connected: result.ok, detail: result.detail };
+    } catch (error) {
+      return { connected: false, detail: describeDeviceError(error) };
+    }
+  });
+
+  defineHandler<{ clientSaleId: string }, FiscalResult>(
+    'fiscal:register',
+    z.object({ clientSaleId: z.string().min(1).max(64) }).strict(),
+    (input) => context.fiscal().registerSale(context.sale.receiptFor(input.clientSaleId).receipt),
+  );
+
+  // --- cihaz ayarları -------------------------------------------------------
+  defineHandler<undefined, DeviceSettings>('devices:get', null, () => context.config.getDevices());
+
+  defineHandler<DeviceSettings, DeviceSettings>('devices:set', deviceConfigSchema, (input) => {
+    const saved = context.config.setDevices(input);
+    // Müşteri ekranı ayarı değişmişse pencere hemen açılır/kapanır; kasiyer
+    // uygulamayı yeniden başlatmak zorunda kalmasın.
+    context.customerDisplay.applyConfig();
+    return saved;
+  });
+
+  defineHandler<undefined, SerialPortOption[]>('devices:serial-ports', null, () =>
+    listSerialPorts(),
+  );
+
+  defineHandler<undefined, DisplayOption[]>('devices:displays', null, () =>
+    context.customerDisplay.displays(),
+  );
+
+  // --- müşteri ekranı -------------------------------------------------------
+  defineHandler<CustomerDisplayState, null>('display:update', displayStateSchema, (input) => {
+    context.customerDisplay.push(input);
+    return null;
   });
 
   assertChannelsRegistered();

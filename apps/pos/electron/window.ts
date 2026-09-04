@@ -90,6 +90,49 @@ export function hardenWebContents(contents: WebContents): void {
   contents.on('will-attach-webview', (event) => event.preventDefault());
 }
 
+/** Kasa ve müşteri pencerelerinin ORTAK sertleştirmesi — ikisi de aynı kilit altında. */
+const WEB_PREFERENCES = {
+  preload: path.join(__dirname, 'preload.js'),
+  // Sertleştirme — buradan GEVŞETİLMEZ (CLAUDE.md / 03-mimari.md).
+  contextIsolation: true,
+  nodeIntegration: false,
+  sandbox: true,
+  webSecurity: true,
+  allowRunningInsecureContent: false,
+  webviewTag: false,
+  spellcheck: false,
+} as const;
+
+/**
+ * Müşteri ekranı penceresi.
+ *
+ * Aynı renderer paketini `#customer` adresiyle yükler: ayrı bir Vite girişi ve
+ * ayrı bir bundle, aynı bileşenlerin iki kopyasını paketlemek demekti. Pencere
+ * çerçevesizdir ve odak ALMAZ — kasiyer yazarken odağın karşı ekrana kaçması
+ * satışı durdururdu.
+ */
+export function createCustomerWindow(): BrowserWindow {
+  const window = new BrowserWindow({
+    width: 1024,
+    height: 600,
+    show: true,
+    frame: false,
+    focusable: false,
+    skipTaskbar: true,
+    backgroundColor: '#0b0b0c',
+    title: 'Stokk Müşteri Ekranı',
+    webPreferences: WEB_PREFERENCES,
+  });
+
+  hardenWebContents(window.webContents);
+  window.setMenuBarVisibility(false);
+
+  if (DEV_SERVER_URL) void window.loadURL(`${DEV_SERVER_URL}#customer`);
+  else void window.loadFile(path.join(__dirname, '../dist/index.html'), { hash: 'customer' });
+
+  return window;
+}
+
 export function createMainWindow(): BrowserWindow {
   const window = new BrowserWindow({
     width: 1280,
@@ -99,17 +142,7 @@ export function createMainWindow(): BrowserWindow {
     show: false,
     backgroundColor: '#fbfbfa',
     title: 'Stokk POS',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      // Sertleştirme — buradan GEVŞETİLMEZ (CLAUDE.md / 03-mimari.md).
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-      webSecurity: true,
-      allowRunningInsecureContent: false,
-      webviewTag: false,
-      spellcheck: false,
-    },
+    webPreferences: WEB_PREFERENCES,
   });
 
   window.once('ready-to-show', () => window.show());

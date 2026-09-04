@@ -14,6 +14,8 @@ import {
 import { readMeta, writeMeta, type PosDatabase } from '../db/database';
 import { markSaleFailed, markSaleSynced } from '../db/local-sale-repo';
 import * as queue from '../db/queue-repo';
+import { AppError } from '../lib/app-error';
+import { log } from '../lib/logger';
 import type { FailedSale, SyncPhase, SyncRunResult, SyncStatus } from '../shared/ipc-contracts';
 
 /** Sunucu 200 kabul ediyor; 100 daha küçük yanıt gövdesi ve daha erken ilerleme demek. */
@@ -53,6 +55,8 @@ const pullResponseSchema = z.object({
       negativeStockPolicy: z.enum(['ALLOW', 'WARN', 'BLOCK']).default('WARN'),
       receiptHeader: z.string().nullable().default(null),
       receiptFooter: z.string().nullable().default(null),
+      receiptWidthMm: z.union([z.literal(58), z.literal(80)]).default(80),
+      autoPrintReceipt: z.boolean().default(true),
     })
     .nullable(),
 });
@@ -69,8 +73,23 @@ const pushResponseSchema = z.object({
   ),
 });
 
+/**
+ * Hatayı kasiyere gösterilebilir hâle çevirir.
+ *
+ * Ham `error.message` (ECONNRESET, "fetch failed", yığın izi) ekrana çıkmaz:
+ * bu metinler `sync_queue.last_error` üzerinden "gönderilemeyen satışlar"
+ * ekranına kadar gidiyordu. Sunucunun kendi Türkçe mesajı (`ApiRequestError`)
+ * anlamlıdır ve olduğu gibi geçer; gerisi tek bir cümleye indirgenir.
+ */
 function describeError(error: unknown): string {
-  return error instanceof Error ? error.message : 'Bilinmeyen senkronizasyon hatası.';
+  if (error instanceof ApiRequestError) {
+    return error.kind === 'network' ? 'Sunucuya ulaşılamadı.' : error.message;
+  }
+  if (error instanceof AppError) return error.message;
+  log('warn', 'sync', 'beklenmeyen senkronizasyon hatası', {
+    detail: error instanceof Error ? `${error.name}: ${error.message}` : String(error),
+  });
+  return 'Bağlantı hatası; tekrar denenecek.';
 }
 
 export interface SyncDeps {
@@ -265,8 +284,9 @@ export class SyncService {
       });
     } catch (error) {
       // İstek hiç ulaşmadıysa da ulaşıp reddedildiyse de kayıtlar kuyrukta kalır;
-      // deneme sayacı artar, bir sonraki deneme geriye ötelenir.
-      const message = error instanceof Error ? error.message : 'Gönderim başarısız.';
+      // deneme sayacı artar, bir sonraki deneme geriye ötelenir. Kuyruğa yazılan
+      // mesaj kasiyere gösterildiği için ham sürücü metni DEĞİL (bkz. describeError).
+      const message = describeError(error);
       for (const row of rows) this.retry(row, message, now);
       this.emit();
       throw error;

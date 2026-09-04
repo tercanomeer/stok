@@ -16,11 +16,18 @@ files:
 # Native binding asar arşivinin İÇİNDEN yüklenemez (dlopen gerçek bir dosya yolu ister).
 asarUnpack:
   - '**/node_modules/better-sqlite3/**'
-# better-sqlite3 N-API (napi=10) ile derlenir; binding Node ABI'sine DEĞİL N-API
-# sürümüne bağlıdır, bu yüzden Electron için ayrı bir derlemeye gerek yoktur.
-# Ayar yine de açık: ileride ABI'ye bağlı bir native modül eklenirse sessizce
-# bozuk paket üretmesin.
-npmRebuild: true
+  - '**/node_modules/@serialport/bindings-cpp/**'
+# Yeniden derleme KAPALI.
+#
+# İki native bağımlılığın da (better-sqlite3, @serialport/bindings-cpp) binding'i
+# N-API ile derlenmiştir: Node ABI'sine değil N-API sürümüne bağlıdır ve paketin
+# içinde her platform için hazır `prebuilds/` klasörü gelir (`node-gyp-build`
+# çalışma anında doğrusunu seçer). Electron için ayrı derlemeye gerek yok.
+#
+# Açık bırakmak zararsız DEĞİL: @electron/rebuild win32-arm64 için kaynaktan
+# derlemeye kalkıyor ve "node-gyp does not support cross-compiling" ile paketleme
+# tamamen duruyor. ABI'ye bağlı bir modül eklenirse burası yeniden açılmalı.
+npmRebuild: false
 win:
   target:
     - msi

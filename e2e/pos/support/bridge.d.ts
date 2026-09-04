@@ -53,7 +53,13 @@ interface PosBridge {
   };
   printer: {
     status(): Promise<PosIpcResult<{ connected: boolean; detail: string }>>;
-    printReceipt(saleId: string): Promise<PosIpcResult<never>>;
+    printReceipt(input: {
+      clientSaleId: string;
+    }): Promise<PosIpcResult<{ printed: boolean; queued: boolean }>>;
+    pending(): Promise<PosIpcResult<{ id: string }[]>>;
+  };
+  devices: {
+    get(): Promise<PosIpcResult<{ printer: { codepage: string } }>>;
   };
 }
 

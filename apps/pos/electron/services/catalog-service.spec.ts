@@ -33,6 +33,8 @@ function withPrefixes(db: PosDatabase, prefixes: string[]): void {
       negativeStockPolicy: 'WARN',
       receiptHeader: null,
       receiptFooter: null,
+      receiptWidthMm: 80,
+      autoPrintReceipt: true,
     },
     NOW,
   );

@@ -2,7 +2,14 @@ import path from 'node:path';
 
 import { app, net } from 'electron';
 
+import { readSettings } from './db/cache-repo';
 import { openDatabase, type PosDatabase } from './db/database';
+import { CustomerDisplayService } from './hardware/customer-display';
+import { createMockFiscal, nullFiscal, type FiscalAdapter } from './hardware/fiscal';
+import { createMockPosDevice, nullPosDevice, type PosDeviceAdapter } from './hardware/pos-device';
+import { PrinterService } from './hardware/printer-service';
+import { ScaleService } from './hardware/scale-service';
+import { openTransport } from './hardware/transports';
 import { ApiClient } from './services/api-client';
 import { AuthService } from './services/auth-service';
 import { CatalogService } from './services/catalog-service';
@@ -16,6 +23,7 @@ import { SessionTokenStore } from './services/secure-store';
 import { ShiftService } from './services/shift-service';
 import { SyncService } from './services/sync-service';
 import { UpdaterService } from './services/updater';
+import { createCustomerWindow } from './window';
 
 export interface AppContext {
   appVersion: string;
@@ -30,6 +38,12 @@ export interface AppContext {
   catalog: CatalogService;
   sale: SaleService;
   contacts: ContactService;
+  printer: PrinterService;
+  scale: ScaleService;
+  customerDisplay: CustomerDisplayService;
+  /** Banka POS ve ÖKC sürücüleri ayardan seçilir; her okuyuşta güncel sürücü döner. */
+  posDevice: () => PosDeviceAdapter;
+  fiscal: () => FiscalAdapter;
   updater: UpdaterService;
   dispose(): void;
 }
@@ -83,6 +97,34 @@ export function createAppContext(): AppContext {
     isOnline: () => network.isOnline,
   });
   const contacts = new ContactService(api, () => network.isOnline);
+  // --- donanım -------------------------------------------------------------
+  // Sahte sürücüler durum tutuyor (yarım kalmış işlem sorgusu). Kurulum kökünün
+  // İÇİNDE yaratılıyorlar: modül seviyesinde tutulsalardı iki ayrı bağlam (ör.
+  // iki test) aynı işlem geçmişini paylaşırdı.
+  const mockPosDevice = createMockPosDevice();
+  const mockFiscal = createMockFiscal();
+
+  const getDevices = (): ReturnType<typeof config.getDevices> => config.getDevices();
+  const printer = new PrinterService({
+    db,
+    openTransport,
+    getConfig: getDevices,
+    // Fiş genişliği POLİTİKA: tenant ayarından gelir, makineden değil.
+    getWidthMm: () => (readSettings(db)?.receiptWidthMm === 58 ? 58 : 80),
+  });
+  const scale = new ScaleService({ openTransport, getConfig: getDevices });
+  const customerDisplay = new CustomerDisplayService({
+    getConfig: getDevices,
+    createWindow: createCustomerWindow,
+  });
+
+  // Sürücüler her çağrıda ayardan okunur: kasiyer ayarı değiştirdiğinde
+  // uygulamayı yeniden başlatmak zorunda kalmasın.
+  const posDevice = (): PosDeviceAdapter =>
+    getDevices().posDevice.driver === 'mock' ? mockPosDevice : nullPosDevice;
+  const fiscal = (): FiscalAdapter =>
+    getDevices().fiscal.driver === 'mock' ? mockFiscal : nullFiscal;
+
   const updater = new UpdaterService(app.isPackaged, electronUpdateEngine);
 
   // Ağ geri geldiğinde 30 sn'lik turu BEKLEME: kuyruk hemen boşalsın.
@@ -114,12 +156,18 @@ export function createAppContext(): AppContext {
     catalog,
     sale,
     contacts,
+    printer,
+    scale,
+    customerDisplay,
+    posDevice,
+    fiscal,
     updater,
     dispose: () => {
       stopNetworkWatch();
       stopSessionWatch();
       sync.stop();
       network.stop();
+      customerDisplay.stop();
       db.close();
     },
   };

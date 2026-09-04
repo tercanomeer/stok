@@ -9,7 +9,7 @@ import type {
   SalePaymentDraft,
 } from '@shared/ipc-contracts';
 import { ScanLine } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 
 import { PERMISSIONS } from '@stokk/types';
 import { Input, useToast } from '@stokk/ui';
@@ -36,6 +36,8 @@ interface SaleScreenProps {
   config: PosConfig;
   /** Vardiya kapanınca uygulama vardiya açılış adımına döner. */
   onShiftClosed: () => void;
+  /** Cihaz ayarları ekranını açar (üst şeritteki dişli ile aynı iş). */
+  onOpenSettings: () => void;
   session: PosSession;
   shift: CashSession;
   network: NetworkStatus;
@@ -60,6 +62,7 @@ type Modal =
 export function SaleScreen({
   config,
   onShiftClosed,
+  onOpenSettings,
   session,
   shift,
   network,
@@ -86,11 +89,21 @@ export function SaleScreen({
   const [products, setProducts] = useState<CatalogProduct[]>([]);
   const [search, setSearch] = useState('');
   const [threshold, setThreshold] = useState('10.00');
+  // Tenant ayarı: satış biter bitmez fiş bassın mı.
+  const [autoPrint, setAutoPrint] = useState(true);
   const [modal, setModal] = useState<Modal>(null);
   const [parked, setParked] = useState<ParkedSale[]>([]);
   const [completed, setCompleted] = useState<CompletedSale | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  /**
+   * Son gösterilen yazıcı uyarısı.
+   *
+   * Yazıcı gün boyu bozuksa her satışta birebir aynı uyarıyı göstermek 200 satışta
+   * 200 toast demek; kasiyer bir süre sonra hepsini yok saymaya başlar. Aynı mesaj
+   * arka arkaya tekrarlarsa susulur — sayı zaten üst şeritteki rozette duruyor.
+   */
+  const lastPrintWarning = useRef<string | null>(null);
 
   const online = network.state === 'online';
   const allowHighDiscount = session.user.permissions.includes(PERMISSIONS.SALE_DISCOUNT_HIGH);
@@ -136,7 +149,9 @@ export function SaleScreen({
   useEffect(() => {
     unwrap(bridge().catalog.settings())
       .then((settings) => {
-        if (settings) setThreshold(settings.highDiscountThreshold);
+        if (!settings) return;
+        setThreshold(settings.highDiscountThreshold);
+        setAutoPrint(settings.autoPrintReceipt);
       })
       .catch(() => undefined);
   }, [cachedProductCount]);
@@ -198,6 +213,41 @@ export function SaleScreen({
       .finally(focusBarcode);
   }, [focusBarcode, refreshParked, toast]);
 
+  /**
+   * Teraziden tartım alır ve SEÇİLİ satırın miktarına yazar.
+   *
+   * Kararsız (oturmamış) tartım satışa girmez: terazinin üstünde el varken okunan
+   * değer müşteriden yanlış para almak demektir.
+   */
+  const readScale = useCallback(() => {
+    const state = useCart.getState();
+    const lineId = state.selectedLineId;
+    if (!lineId) {
+      toast.show({
+        tone: 'info',
+        title: 'Tartı',
+        description: 'Önce tartılacak ürünün satırını seçin.',
+      });
+      return;
+    }
+    unwrap(bridge().scale.read())
+      .then((reading) => {
+        if (!reading.stable) {
+          toast.show({
+            tone: 'warning',
+            title: 'Tartı oturmadı',
+            description: 'Terazinin sabitlenmesini bekleyip tekrar deneyin.',
+          });
+          return;
+        }
+        useCart.getState().setQuantity(lineId, reading.weightKg);
+      })
+      .catch((scaleError: unknown) => {
+        toast.error('Tartı okunamadı', errorMessage(scaleError));
+      })
+      .finally(focusBarcode);
+  }, [focusBarcode, toast]);
+
   const runAction = useCallback(
     (action: SaleAction) => {
       const state = useCart.getState();
@@ -241,10 +291,10 @@ export function SaleScreen({
           focusBarcode();
           return;
         case 'scale':
-          // Terazi Faz 14'te bağlanacak; kanal şimdiden var ve NOT_IMPLEMENTED dönüyor.
-          unwrap(bridge().scale.read()).catch((scaleError: unknown) => {
-            toast.show({ tone: 'info', title: 'Tartı', description: errorMessage(scaleError) });
-          });
+          readScale();
+          return;
+        case 'settings':
+          onOpenSettings();
           return;
         case 'closeShift':
           // Dolu sepetle kapatmak, kasiyerin üzerinde satış varken çekmeceyi
@@ -261,7 +311,15 @@ export function SaleScreen({
           return;
       }
     },
-    [breakdown.totals.grandTotal, focusBarcode, park, refreshParked, toast],
+    [
+      breakdown.totals.grandTotal,
+      focusBarcode,
+      onOpenSettings,
+      park,
+      readScale,
+      refreshParked,
+      toast,
+    ],
   );
 
   /**
@@ -312,6 +370,28 @@ export function SaleScreen({
     };
   }, [barcodeRef, completed, focusBarcode, modal, resetBarcode, runAction]);
 
+  /**
+   * Müşteri ekranını besler.
+   *
+   * Sepet ya da satış sonucu değiştikçe main process'e durum yollanır; main onu
+   * müşteri penceresine iletir. Ekran tanımlı değilse main sessizce yutar —
+   * burada "ekran var mı" sorusu sorulmaz, sorumluluk tek yerde kalsın.
+   */
+  useEffect(() => {
+    void unwrap(
+      bridge().display.update({
+        lines: lines.map((line) => ({
+          name: line.name,
+          quantity: line.quantity,
+          lineTotal: totals.get(line.lineId) ?? '0.00',
+        })),
+        grandTotal: completed ? completed.grandTotal : breakdown.totals.grandTotal,
+        changeDue: completed && Number(completed.changeDue) > 0 ? completed.changeDue : null,
+        message: lines.length === 0 && !completed ? 'Hoş geldiniz' : null,
+      }),
+    ).catch(() => undefined);
+  }, [breakdown.totals.grandTotal, completed, lines, totals]);
+
   // Açılışta ve her modal kapanışında odak barkoda döner.
   useEffect(() => {
     if (modal === null && completed === null) focusBarcode();
@@ -334,6 +414,41 @@ export function SaleScreen({
     return closed;
   }, [lines.length, online, selectedLineId]);
 
+  /**
+   * Satış sonrası fiş.
+   *
+   * Yazdırma satışı ASLA engellemez: hata fırlatmaz, basılamayan fiş kuyruğa
+   * alınır ve kasiyer uyarı görür. Nakit satışta çekmece darbesi de aynı işe
+   * eklenir (main process karar verir).
+   */
+  const printSale = useCallback(
+    (clientSaleId: string, options: { auto?: boolean } = {}) => {
+      unwrap(bridge().printer.printReceipt({ clientSaleId }))
+        .then((result) => {
+          if (result.printed) {
+            lastPrintWarning.current = null;
+            return;
+          }
+          // OTOMATİK basımda, yazıcı hiç tanımlı değilse (kuyruğa da girmediyse)
+          // sessiz kalınır: yazıcısı olmayan dükkânda her satışta uyarı çıkarmak
+          // gürültüdür. Kasiyer düğmeye BASTIYSA her hâlükârda cevap alır.
+          if (options.auto && !result.queued) return;
+          const description = result.queued
+            ? `${result.message ?? ''} Fiş kuyruğa alındı, yazıcı hazır olunca basılabilir.`
+            : (result.message ?? 'Yazıcı tanımlı değil.');
+          // Aynı arıza arka arkaya tekrarlıyorsa sus; kasiyer düğmeye BASTIYSA
+          // her zaman cevap alır.
+          if (options.auto && lastPrintWarning.current === description) return;
+          lastPrintWarning.current = description;
+          toast.show({ tone: 'warning', title: 'Fiş basılamadı', description });
+        })
+        .catch((printError: unknown) => {
+          toast.error('Fiş basılamadı', errorMessage(printError));
+        });
+    },
+    [toast],
+  );
+
   function submitSale(payments: SalePaymentDraft[]): void {
     setSubmitting(true);
     setPaymentError(null);
@@ -343,6 +458,7 @@ export function SaleScreen({
         useCart.getState().clear();
         setModal(null);
         setCompleted(sale);
+        if (autoPrint) printSale(sale.clientSaleId, { auto: true });
       })
       .catch((submitError: unknown) => {
         setPaymentError(errorMessage(submitError, 'Satış kaydedilemedi.'));
@@ -514,15 +630,7 @@ export function SaleScreen({
             focusBarcode();
           }}
           onPrint={() => {
-            unwrap(bridge().printer.printReceipt(completed.clientSaleId)).catch(
-              (printError: unknown) => {
-                toast.show({
-                  tone: 'info',
-                  title: 'Yazdırma',
-                  description: errorMessage(printError),
-                });
-              },
-            );
+            printSale(completed.clientSaleId);
           }}
         />
       ) : null}

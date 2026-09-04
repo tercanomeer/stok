@@ -3,6 +3,7 @@ import type {
   NetworkStatus,
   PosConfig,
   PosSession,
+  PrintJob,
   SyncStatus,
   UpdateStatus,
 } from '@shared/ipc-contracts';
@@ -12,9 +13,11 @@ import { ToastProvider } from '@stokk/ui';
 
 
 import { FailedSalesDialog } from './components/sale/failed-sales-dialog';
+import { PrintQueueDialog } from './components/sale/print-queue-dialog';
 import { StatusBar } from './components/status-bar';
 import { resolveStep } from './lib/boot-flow';
 import { bridge, unwrap } from './lib/bridge';
+import { DeviceSettingsScreen } from './screens/device-settings-screen';
 import { LoginScreen } from './screens/login-screen';
 import { RegisterSelectScreen } from './screens/register-select-screen';
 import { SaleScreen } from './screens/sale-screen';
@@ -54,6 +57,10 @@ export function App(): ReactElement {
   const [editingServer, setEditingServer] = useState(false);
   const [editingRegister, setEditingRegister] = useState(false);
   const [showFailed, setShowFailed] = useState(false);
+  const [showPrintQueue, setShowPrintQueue] = useState(false);
+  const [showDevices, setShowDevices] = useState(false);
+  /** Basılamamış fiş sayısı — main process her değişimde yayınlıyor. */
+  const [printQueue, setPrintQueue] = useState(0);
 
   // Açılış: main process'ten mevcut durumu topla. Ağ yoklaması yavaş olabilir,
   // splash onun için var.
@@ -78,7 +85,12 @@ export function App(): ReactElement {
         const status = await unwrap(api.system.networkStatus());
         if (active) setNetwork(status);
       }
-      if (active) setLoading(false);
+      // Basılamamış fiş varsa kasiyer daha ilk açılışta görsün.
+      const jobs = await unwrap(api.printer.pending()).catch(() => [] as PrintJob[]);
+      if (active) {
+        setPrintQueue(jobs.length);
+        setLoading(false);
+      }
     }
     void boot().catch(() => {
       if (active) setLoading(false);
@@ -95,6 +107,7 @@ export function App(): ReactElement {
       api.system.onNetworkChange(setNetwork),
       api.sync.onStatusChange(setSync),
       api.system.onUpdateChange(setUpdate),
+      api.printer.onQueueChange(setPrintQueue),
       api.auth.onSessionChange((next) => {
         setSession(next);
         // Oturum düşünce vardiya bilgisi de geçersizdir; ekran onu yeniden sorar.
@@ -224,15 +237,42 @@ export function App(): ReactElement {
           onShowFailed={() => {
             setShowFailed(true);
           }}
+          printQueue={printQueue}
+          onShowPrintQueue={() => {
+            setShowPrintQueue(true);
+          }}
+          onOpenSettings={() => {
+            setShowDevices(true);
+          }}
         />
-        <SaleScreen
-          config={config}
-          onShiftClosed={handleShiftClosed}
-          session={session as PosSession}
-          shift={shift as CashSession}
-          network={network}
-          cachedProductCount={sync.cachedProductCount}
-        />
+        {showDevices ? (
+          <DeviceSettingsScreen
+            onClose={() => {
+              setShowDevices(false);
+            }}
+          />
+        ) : (
+          <SaleScreen
+            config={config}
+            onShiftClosed={handleShiftClosed}
+            onOpenSettings={() => {
+              setShowDevices(true);
+            }}
+            session={session as PosSession}
+            shift={shift as CashSession}
+            network={network}
+            cachedProductCount={sync.cachedProductCount}
+          />
+        )}
+        {showPrintQueue ? (
+          <PrintQueueDialog
+            onClose={() => {
+              setShowPrintQueue(false);
+            }}
+            onChange={setPrintQueue}
+          />
+        ) : null}
+
         {showFailed ? (
           <FailedSalesDialog
             onClose={() => {

@@ -88,7 +88,12 @@ const bridge: StokkBridge = {
   },
   printer: {
     status: () => invoke('printer:status'),
-    printReceipt: (saleId) => invoke('printer:print-receipt', { saleId }),
+    printReceipt: (input) => invoke('printer:print-receipt', input),
+    test: () => invoke('printer:test'),
+    pending: () => invoke('printer:pending'),
+    retryPending: () => invoke('printer:retry-pending'),
+    discardPending: (id) => invoke('printer:discard-pending', { id }),
+    onQueueChange: (listener) => subscribe('event:print-queue', listener),
   },
   scale: {
     status: () => invoke('scale:status'),
@@ -96,11 +101,27 @@ const bridge: StokkBridge = {
   },
   posDevice: {
     status: () => invoke('posDevice:status'),
-    pay: (amount) => invoke('posDevice:pay', { amount }),
+    pay: (input) => invoke('posDevice:pay', input),
+    query: (referenceId) => invoke('posDevice:query', { referenceId }),
+    cancel: (referenceId) => invoke('posDevice:cancel', { referenceId }),
   },
   cashDrawer: {
     status: () => invoke('cashDrawer:status'),
     open: () => invoke('cashDrawer:open'),
+  },
+  fiscal: {
+    status: () => invoke('fiscal:status'),
+    register: (clientSaleId) => invoke('fiscal:register', { clientSaleId }),
+  },
+  devices: {
+    get: () => invoke('devices:get'),
+    set: (settings) => invoke('devices:set', settings),
+    serialPorts: () => invoke('devices:serial-ports'),
+    displays: () => invoke('devices:displays'),
+  },
+  display: {
+    update: (state) => invoke('display:update', state),
+    onChange: (listener) => subscribe('event:customer-display', listener),
   },
 };
 

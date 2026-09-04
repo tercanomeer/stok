@@ -1,5 +1,14 @@
 import type { NetworkStatus, PosSession, SyncStatus, UpdateStatus } from '@shared/ipc-contracts';
-import { CloudOff, CloudUpload, Download, RefreshCw, Wifi, WifiOff } from 'lucide-react';
+import {
+  CloudOff,
+  CloudUpload,
+  Download,
+  Printer,
+  RefreshCw,
+  Settings,
+  Wifi,
+  WifiOff,
+} from 'lucide-react';
 import type { ReactElement } from 'react';
 
 import { Badge, Button, formatRelative } from '@stokk/ui';
@@ -14,6 +23,10 @@ interface StatusBarProps {
   onLogout: () => void;
   /** Gönderilemeyen satış listesini açar. */
   onShowFailed: () => void;
+  /** Basılamamış fiş sayısı. */
+  printQueue: number;
+  onShowPrintQueue: () => void;
+  onOpenSettings: () => void;
 }
 
 function networkBadge(network: NetworkStatus): ReactElement {
@@ -53,6 +66,9 @@ export function StatusBar({
   onSyncNow,
   onLogout,
   onShowFailed,
+  printQueue,
+  onShowPrintQueue,
+  onOpenSettings,
 }: StatusBarProps): ReactElement {
   return (
     <header className="border-border bg-surface-raised flex items-center gap-3 border-b px-4 py-2">
@@ -74,6 +90,16 @@ export function StatusBar({
       {sync.failedCount > 0 ? (
         <Button variant="ghost" size="sm" onClick={onShowFailed}>
           <Badge tone="danger">{sync.failedCount} satış gönderilemedi</Badge>
+        </Button>
+      ) : null}
+
+      {/* Basılamamış fiş: satış tamamlandı, yalnız kağıt çıkmadı. */}
+      {printQueue > 0 ? (
+        <Button variant="ghost" size="sm" onClick={onShowPrintQueue}>
+          <Badge tone="warning">
+            <Printer aria-hidden />
+            {printQueue} fiş basılamadı
+          </Badge>
         </Button>
       ) : null}
 
@@ -99,6 +125,10 @@ export function StatusBar({
       >
         <RefreshCw aria-hidden />
         Eşitle
+      </Button>
+
+      <Button variant="ghost" size="sm" aria-label="Cihaz ayarları" onClick={onOpenSettings}>
+        <Settings aria-hidden />
       </Button>
 
       <Button variant="ghost" size="sm" onClick={onLogout}>

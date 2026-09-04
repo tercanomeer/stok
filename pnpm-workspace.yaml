@@ -103,6 +103,10 @@ catalog:
   '@types/better-sqlite3': 9.6.0
   vite: 8.2.2
   '@vitejs/plugin-react': 6.1.1
+  # Donanım (Faz 14). serialport N-API ile derlenir — better-sqlite3 gibi,
+  # Electron için ayrı derlemeye gerek yok.
+  serialport: 13.0.0
+  iconv-lite: 0.7.3
 
   # --- test ---
   vitest: 4.1.11
@@ -129,3 +133,4 @@ allowBuilds:
   esbuild: true
   prisma: true
   unrs-resolver: true
+  '@serialport/bindings-cpp': true

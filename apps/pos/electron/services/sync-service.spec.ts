@@ -237,7 +237,10 @@ describe('SyncService — gönderim', () => {
     expect(counts(h.db)).toEqual({ pending: 1, failed: 0 });
     expect(claimDue(h.db, NOW, 10)).toHaveLength(0);
     expect(claimDue(h.db, new Date(NOW.getTime() + 6_000), 10)).toHaveLength(1);
-    expect(h.sync.status().lastError).toContain('ECONNRESET');
+    // Ham sürücü metni ('ECONNRESET') kasiyere GÖSTERİLMEZ; kuyruk ve durum
+    // satırı yalnız anlaşılır cümle taşır.
+    expect(h.sync.status().lastError).toContain('Sunucuya ulaşılamadı');
+    expect(h.sync.status().lastError).not.toContain('ECONNRESET');
   });
 
   it('yanıtta karşılığı olmayan satırı işlenmiş SAYMAZ', async () => {
